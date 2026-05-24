@@ -54,11 +54,26 @@
   justify-content: center;
   color: #777;
 }
+
+#blind-status {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none; /* Allows clicking through the text */
+}
 </style>
 
 <label style="position:fixed; top:10px; left:10px; z-index: 1000;">
     <input type="checkbox" id="mode-toggle"> Enable Wiggle/Physics
 </label>
+
+<div id="blind-status" style="
+
+">
+    Blind: Small Blind (Target: 100)
+</div>
 
 <div id="labels-container" style="
     position: fixed; 
@@ -74,9 +89,12 @@
     <div id="hand-type-preview" style="color: #ff0; font-size: 1.2em;">Select cards...</div>
 </div>
 
-
+<div id="deck-area" style="position: fixed; top: 180px; right: 20px; width: 100px; height: 50px; border: 1px solid #555; display: flex; align-items: center; justify-content: center; color: white;">
+  Deck: <span id="deck-count">52</span>
+</div>
 <div id="hand-area"></div>
 <div id="discard-pile">Discard</div>
+
 
 <div id="controls" style="text-align:center; padding: 20px; color: white;">
   <div id="score-display" style="font-size: 2em; margin-bottom: 10px;">Score: 0</div>
@@ -86,6 +104,15 @@
 </div>
 
 <script>
+
+// Add to your gameState
+let gameState = {
+  score: 0,
+  handsLeft: 4,
+  discardsLeft: 4,
+  anteLevel: 1 // 1, 2, or 3
+};
+
   const toggle = document.getElementById('mode-toggle');
   let activeCard = null;
   let mouseX = 0, mouseY = 0;
@@ -96,11 +123,26 @@
 const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const suits = ['♠', '♥', '♦', '♣'];
 
-let gameState = {
-  score: 0,
-  handsLeft: 4,
-  discardsLeft: 4
-};
+function checkBlind() {
+  const targets = [100, 300, 500];
+  const target = targets[gameState.anteLevel - 1];
+  
+  if (gameState.score >= target) {
+    if (gameState.anteLevel < 3) {
+      gameState.anteLevel++;
+      alert("Blind Cleared! Next: " + targets[gameState.anteLevel - 1]);
+      // Reset hand/discard uses but keep score for progression
+      gameState.handsLeft = 4;
+      gameState.discardsLeft = 4;
+    } else {
+      alert("You beat the final blind! YOU WIN!");
+    }
+  }
+  
+  // Update UI
+  document.getElementById('blind-status').innerText = 
+    `Blind: Level ${gameState.anteLevel} (Target: ${targets[gameState.anteLevel - 1]})`;
+}
 
 function updateUI() {
   document.getElementById('score-display').innerText = `Score: ${gameState.score}`;
@@ -108,7 +150,9 @@ function updateUI() {
   document.getElementById('discard-btn').innerText = `Discard (${gameState.discardsLeft} left)`;
 }
 
-
+function updateDeckDisplay() {
+    document.getElementById('deck-count').innerText = deck.length;
+}
 
 // Scoring Logic (The "Big Number" Pop)
 function getHandType(cards) {
@@ -244,18 +288,38 @@ function showPopup(text, color) {
     .onfinish = () => popup.remove();
 }
 
+let deck = [];
+
+// Initialize or Reset the deck
 function initDeck() {
     deck = [];
+    const suits = ['♠', '♥', '♦', '♣'];
+    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    
     for (let s of suits) {
         for (let r of ranks) {
-            deck.push({ rank: r, suit: s, chips: getRankValue(r) });
+            deck.push({ rank: r, suit: s });
         }
     }
-    // Simple Fisher-Yates Shuffle
+    
+    // Fisher-Yates Shuffle
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
     }
+    updateDeckDisplay();
+}
+initDeck();
+
+// Draw a single card from the deck
+function drawCard() {
+    if (deck.length === 0) {
+        alert("Deck empty! Reshuffling...");
+        initDeck();
+    }
+    const card = deck.pop();
+    updateDeckDisplay();
+    return card;
 }
 
 function getRankValue(r) {
@@ -483,8 +547,11 @@ function fillHand() {
     const cardsNeeded = 7 - currentCards.length;
     
     for (let i = 0; i < cardsNeeded; i++) {
+        const cardData = drawCard(); // Draw from real deck
         const card = document.createElement('div');
         card.className = 'card';
+        card.rank = cardData.rank;
+        card.suit = cardData.suit;
         card.isSelected = false;
         card.style.position = 'relative'; // Keep them flowing in flexbox
         
