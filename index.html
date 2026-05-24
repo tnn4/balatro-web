@@ -60,6 +60,21 @@
     <input type="checkbox" id="mode-toggle"> Enable Wiggle/Physics
 </label>
 
+<div id="labels-container" style="
+    position: fixed; 
+    top: 20px; 
+    right: 20px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: flex-end; 
+    gap: 10px; /* This creates the 10px space between the two labels */
+    z-index: 1000;
+">
+    <div id="hand-validation-msg" style="color: #f00; font-size: 1em;"></div>
+    <div id="hand-type-preview" style="color: #ff0; font-size: 1.2em;">Select cards...</div>
+</div>
+
+
 <div id="hand-area"></div>
 <div id="discard-pile">Discard</div>
 
@@ -96,13 +111,46 @@ function updateUI() {
 
 
 // Scoring Logic (The "Big Number" Pop)
-
 function getHandType(cards) {
     const ranks = cards.map(c => c.rank).sort((a,b) => rankToNum(a) - rankToNum(b));
     const suits = cards.map(c => c.suit);
     
     // Check Flush: All suits are the same
-    const isFlush = suits.every(s => s === suits[0]);
+    const isFlush = suits.every(s => s === suits[0]) && cards.length === 5;
+    
+    // Check Straight: Each rank is +1 of the previous
+    let isStraight = true;
+    for(let i = 0; i < ranks.length - 1; i++) {
+        if (rankToNum(ranks[i+1]) !== rankToNum(ranks[i]) + 1) isStraight = false;
+    }
+
+    // Check Pairs: Count occurrences
+    const counts = {};
+    ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
+const frequencies = Object.values(counts);
+  const pairCount = frequencies.filter(c => c === 2).length;
+    const hasThree = frequencies.includes(3);
+    
+
+    // --- RE-ORDERED PRIORITY ---
+    // 1. Check complex hands first (3 of a kind, Full House, etc)
+    if (isFlush) return { name: "Flush", bonus: 50 };
+    if (isStraight) return { name: "Straight", bonus: 70 };
+    if (hasThree && pairCount === 1) return { name: "Full House", bonus: 40 }; // Example
+    if (hasThree) return { name: "Three of a Kind", bonus: 30 };
+    
+// 2. Check pairs
+    if (pairCount === 2) return { name: "Two Pair", bonus: 20 };
+    if (pairCount === 1) return { name: "Pair", bonus: 10 };
+
+    return { name: "High Card", bonus: 0 };
+}
+function getHandType2(cards) {
+    const ranks = cards.map(c => c.rank).sort((a,b) => rankToNum(a) - rankToNum(b));
+    const suits = cards.map(c => c.suit);
+    
+    // Check Flush: All suits are the same
+    const isFlush = suits.every(s => s === suits[0]) && cards.length === 5;
     
     // Check Straight: Each rank is +1 of the previous
     let isStraight = true;
@@ -136,6 +184,13 @@ function scoreHand() {
     if (gameState.handsLeft <= 0) return;
     const selected = document.querySelectorAll('.card.selected');
     if (selected.length === 0) return;
+
+    // Validation: Enforce 5 card limit
+    if (selected.length === 0) return;
+    if (selected.length > 5) {
+        alert("You can only play up to 5 cards!");
+        return;
+    }
 
     const handResult = getHandType(Array.from(selected));
     gameState.score += (selected.length * 10) + handResult.bonus;
@@ -266,6 +321,9 @@ for(let i = 0; i < 7; i++) {
     const suit = suits[Math.floor(Math.random() * suits.length)];
     const isRed = (suit === '♥' || suit === '♦');
     
+    card.rank = rank;
+    card.suit = suit;
+
     card.innerHTML = `
         <div style="position:absolute; top:5px; left:5px; font-weight:bold;">${rank}</div>
         <div style="font-size: 30px; color: ${isRed ? '#d00' : '#000'};">${suit}</div>
@@ -326,8 +384,50 @@ document.body.addEventListener('mousedown', (e) => {
         
         // Store the original reference so we know what we are dragging
         activeCard.originalRef = original;
+
+        updatePreviewLabel();
     }
 });
+
+function updatePreviewLabel() {
+    const selected = document.querySelectorAll('.card.selected');
+    const validationMsg = document.getElementById('hand-validation-msg');
+    const preview = document.getElementById('hand-type-preview');
+    
+    // 1. Logic: Constraint Check (Max 5)
+    if (selected.length > 5) {
+        validationMsg.innerText = "⚠ Too many cards! Max 5.";
+        preview.innerText = "---"; // Hide hand type when invalid
+        return;
+    } else {
+        validationMsg.innerText = ""; // Clear warning
+    }
+
+    // 2. Logic: Hand Type Detection (Only if <= 5)
+    if (selected.length === 0) {
+        preview.innerText = "Select cards...";
+    } else {
+        const result = getHandType(Array.from(selected));
+        preview.innerText = `Detected: ${result.name}`;
+    }
+}
+
+function updatePreviewLabel2() {
+    const selected = document.querySelectorAll('.card.selected');
+    const preview = document.getElementById('hand-type-preview');
+    
+    if (selected.length === 0) {
+        preview.innerText = "Select cards...";
+    } else if (selected.length > 5) {
+        preview.innerText = "Too many cards! (Max 5)";
+        preview.style.color = "#f00";
+    } else {
+        // We evaluate based on the current selection
+        const result = getHandType(Array.from(selected));
+        preview.innerText = `Detected: ${result.name}`;
+        preview.style.color = "#ff0";
+    }
+}
 
 /*
  window.addEventListener('mouseup', () => {
