@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<style>
+  body { background: #1a1a1a; margin: 0; overflow: hidden; color: white; font-family: sans-serif; }
+.card { 
+  position: absolute; 
+  width: 100px; 
+  height: 150px; 
+  background: #ffffff; 
+  color: #000000; 
+  border-radius: 8px; 
+  cursor: grab; 
+  /* Updated to flex column for proper internal alignment */
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  user-select: none; 
+  z-index: 10; 
+  border: 1px solid #ccc; 
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+/* The "Juice" state: Shifted up and glowing green */
+  .card.selected {
+    transform: translateY(-20px) !important; /* !important overrides the physics loop */
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.6) !important;
+    border-color: #0f0 !important;
+  }
+
+  #hand-area {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  border-top: 2px dashed #555;
+}
+
+#discard-pile {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 100px;
+  height: 150px;
+  border: 2px dashed #777;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+}
+</style>
+
+<label style="position:fixed; top:10px; left:10px; z-index: 1000;">
+    <input type="checkbox" id="mode-toggle"> Enable Wiggle/Physics
+</label>
+
+<div id="hand-area"></div>
+<div id="discard-pile">Discard</div>
+
+<div id="controls" style="text-align:center; padding: 20px; color: white;">
+  <div id="score-display" style="font-size: 2em; margin-bottom: 10px;">Score: 0</div>
+  <button id="play-btn" style="background: blue; color: white; padding: 10px 20px;">Play Hand (4 left)</button>
+  <button id="discard-btn" style="background: red; color: white; padding: 10px 20px;">Discard (4 left)</button>
+  <button id="reset-btn" style="padding: 10px 20px;">Reset Game</button>
+</div>
+
+<script>
+  const toggle = document.getElementById('mode-toggle');
+  let activeCard = null;
+  let mouseX = 0, mouseY = 0;
+  let offset = { x: 0, y: 0 };
+  let pos = { x: 0, y: 0 }; // For physics
+
+// Add these arrays above the loop
+const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const suits = ['♠', '♥', '♦', '♣'];
+
+let gameState = {
+  score: 0,
+  handsLeft: 4,
+  discardsLeft: 4
+};
+
+function updateUI() {
+  document.getElementById('score-display').innerText = `Score: ${gameState.score}`;
+  document.getElementById('play-btn').innerText = `Play Hand (${gameState.handsLeft} left)`;
+  document.getElementById('discard-btn').innerText = `Discard (${gameState.discardsLeft} left)`;
+}
+
+
+
+// Scoring Logic (The "Big Number" Pop)
+
+function getHandType(cards) {
+    const ranks = cards.map(c => c.rank).sort((a,b) => rankToNum(a) - rankToNum(b));
+    const suits = cards.map(c => c.suit);
+    
+    // Check Flush: All suits are the same
+    const isFlush = suits.every(s => s === suits[0]);
+    
+    // Check Straight: Each rank is +1 of the previous
+    let isStraight = true;
+    for(let i = 0; i < ranks.length - 1; i++) {
+        if (rankToNum(ranks[i+1]) !== rankToNum(ranks[i]) + 1) isStraight = false;
+    }
+
+    // Check Pairs: Count occurrences
+    const counts = {};
+    ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
+    const pairs = Object.values(counts).filter(c => c === 2).length;
+
+    // Return score based on type
+    if (isFlush) return { name: "Flush", bonus: 50 };
+    if (isStraight) return { name: "Straight", bonus: 70 };
+    if (pairs === 2) return { name: "Two Pair", bonus: 20 };
+    if (pairs === 1) return { name: "Pair", bonus: 10 };
+    
+    return { name: "High Card", bonus: 0 };
+}
+
+// Helper to convert rank string to number for sorting
+function rankToNum(r) {
+    if (r === 'A') return 14;
+    if (r === 'K') return 13;
+    if (r === 'Q') return 12;
+    if (r === 'J') return 11;
+    return parseInt(r);
+}
+function scoreHand() {
+    if (gameState.handsLeft <= 0) return;
+    const selected = document.querySelectorAll('.card.selected');
+    if (selected.length === 0) return;
+
+    const handResult = getHandType(Array.from(selected));
+    gameState.score += (selected.length * 10) + handResult.bonus;
+    
+    // UI Pop-up effect
+    const display = document.getElementById('score-display');
+    display.innerText = `${handResult.name}! +${handResult.bonus}`;
+    display.style.color = '#0f0';
+    setTimeout(() => { updateUI(); display.style.color = '#fff'; }, 1000);
+
+    selected.forEach(c => c.remove());
+    gameState.handsLeft--;
+    fillHand();
+    updateUI();
+
+
+// Trigger the pop-up
+showPopup(handResult.name.toUpperCase() + "!", "#0f0");
+}
+
+
+// Attach listeners
+document.getElementById('play-btn').addEventListener('click', scoreHand);
+document.getElementById('reset-btn').addEventListener('click', () => {
+  gameState = { score: 0, handsLeft: 4, discardsLeft: 4 };
+  updateUI();
+  // Add logic here to re-spawn 7 cards
+});
+
+function showPopup(text, color) {
+    const popup = document.createElement('div');
+    popup.innerText = text;
+    popup.style.position = 'fixed';
+    popup.style.top = '40%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+    popup.style.fontSize = '4rem';
+    popup.style.fontWeight = 'bold';
+    popup.style.color = color;
+    popup.style.pointerEvents = 'none'; // Don't block clicks
+    popup.style.zIndex = '2000';
+    popup.style.textShadow = '0 0 10px rgba(0,0,0,0.5)';
+    document.body.appendChild(popup);
+
+    // Animate the "Juice"
+    popup.animate([
+        { opacity: 0, transform: 'translate(-50%, -50%) scale(0.5)' },
+        { opacity: 1, transform: 'translate(-50%, -50%) scale(1.2)' },
+        { opacity: 0, transform: 'translate(-50%, -50%) scale(1.5)' }
+    ], { duration: 1000, easing: 'ease-out' })
+    .onfinish = () => popup.remove();
+}
+
+function initDeck() {
+    deck = [];
+    for (let s of suits) {
+        for (let r of ranks) {
+            deck.push({ rank: r, suit: s, chips: getRankValue(r) });
+        }
+    }
+    // Simple Fisher-Yates Shuffle
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+}
+
+function getRankValue(r) {
+    if (['J', 'Q', 'K'].includes(r)) return 10;
+    if (r === 'A') return 11;
+    return parseInt(r);
+}
+
+// 2. Scoring Button Logic
+function calculateScore(selectedCards) {
+    let handChips = 10; // Base for a Pair (simplified)
+    let cardChips = selectedCards.reduce((acc, c) => acc + c.chips, 0);
+    let mult = 2; // Base multiplier
+    
+    return (handChips + cardChips) * mult;
+}
+function createNCards(num=5){
+  if (typeof num !== 'number'){
+    console.log('[createNCards()] ERROR: argument not number');
+    return
+  }
+  // Update the card creation loop
+for(let i = 0; i < num; i++) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.isSelected = false; // Initialize state
+    
+    const rank = ranks[Math.floor(Math.random() * ranks.length)];
+    const suit = suits[Math.floor(Math.random() * suits.length)];
+    const isRed = (suit === '♥' || suit === '♦');
+    
+    card.style.left = (50 + i * 120) + 'px';
+    card.style.top = '200px';
+    
+    card.innerHTML = `
+        <div style="position:absolute; top:5px; left:5px; font-weight:bold;">${rank}</div>
+        <div style="font-size: 30px; color: ${isRed ? '#d00' : '#000'};">${suit}</div>
+    `;
+
+    // ADD THIS: Toggle selection on click
+    card.addEventListener('mousedown', (e) => {
+      // Prevent selection toggle from interfering with dragging if desired
+      card.isSelected = !card.isSelected;
+      card.classList.toggle('selected', card.isSelected);
+    });
+    
+    document.body.appendChild(card);
+}
+}
+// 1. Get the hand area reference
+const handArea = document.getElementById('hand-area');
+
+// 2. Update the loop to append to the hand area
+for(let i = 0; i < 7; i++) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.isSelected = false;
+    
+    // Change: Set position to relative so it respects the Flexbox in hand-area
+    card.style.position = 'relative'; 
+    
+    const rank = ranks[Math.floor(Math.random() * ranks.length)];
+    const suit = suits[Math.floor(Math.random() * suits.length)];
+    const isRed = (suit === '♥' || suit === '♦');
+    
+    card.innerHTML = `
+        <div style="position:absolute; top:5px; left:5px; font-weight:bold;">${rank}</div>
+        <div style="font-size: 30px; color: ${isRed ? '#d00' : '#000'};">${suit}</div>
+    `;
+
+    card.addEventListener('mousedown', (e) => {
+      card.isSelected = !card.isSelected;
+      card.classList.toggle('selected', card.isSelected);
+    });
+    
+    // Change: Append to handArea instead of document.body
+    handArea.appendChild(card);
+}
+
+
+  window.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    
+    if (activeCard && !toggle.checked) {
+      activeCard.style.left = (mouseX - offset.x) + 'px';
+      activeCard.style.top = (mouseY - offset.y) + 'px';
+    }
+  });
+/*
+  document.body.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('card')) {
+      activeCard = e.target;
+      offset.x = mouseX - activeCard.offsetLeft;
+      offset.y = mouseY - activeCard.offsetTop;
+      pos = { x: activeCard.offsetLeft, y: activeCard.offsetTop };
+    }
+  });
+*/
+
+document.body.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('card')) {
+        const original = e.target;
+        
+        // 1. Create a "Ghost" card for dragging
+        activeCard = original.cloneNode(true);
+        activeCard.style.position = 'absolute';
+        activeCard.style.zIndex = '1000';
+        activeCard.style.pointerEvents = 'none'; // So it doesn't block mouse events
+        
+        // 2. Hide the original so it feels like you "picked it up"
+        original.style.opacity = '0.3';
+        
+        // 3. Set the ghost's position
+        const rect = original.getBoundingClientRect();
+        activeCard.style.left = rect.left + 'px';
+        activeCard.style.top = rect.top + 'px';
+        
+        offset.x = mouseX - rect.left;
+        offset.y = mouseY - rect.top;
+        
+        document.body.appendChild(activeCard);
+        
+        // Store the original reference so we know what we are dragging
+        activeCard.originalRef = original;
+    }
+});
+
+/*
+ window.addEventListener('mouseup', () => {
+  if (!activeCard) return;
+
+  const handArea = document.getElementById('hand-area');
+  const rect = handArea.getBoundingClientRect();
+  
+  // Check if dropped inside the hand area
+  if (mouseX >= rect.left && mouseX <= rect.right && 
+      mouseY >= rect.top && mouseY <= rect.bottom) {
+    
+    // Snap-back: Reset transform and append to hand container
+    activeCard.style.position = 'relative'; // Remove absolute positioning
+    activeCard.style.left = 'auto';
+    activeCard.style.top = 'auto';
+    activeCard.style.transform = 'rotate(0deg) scale(1)';
+    handArea.appendChild(activeCard);
+  }
+  
+  activeCard = null;
+});
+*/
+
+window.addEventListener('mouseup', () => {
+    if (activeCard) {
+        const original = activeCard.originalRef;
+        const handArea = document.getElementById('hand-area');
+        const rect = handArea.getBoundingClientRect();
+        
+        // If dropped in hand area, restore visibility
+        if (mouseX >= rect.left && mouseX <= rect.right && 
+            mouseY >= rect.top && mouseY <= rect.bottom) {
+            original.style.opacity = '1';
+        } else {
+            // If dropped outside, maybe discard or return? 
+            // For now, just restore visibility.
+            original.style.opacity = '1';
+        }
+        
+        // Clean up the ghost
+        activeCard.remove();
+        activeCard = null;
+    }
+});
+
+// Discard Logic
+
+// 1. New function to keep the hand at 7 cards
+function fillHand() {
+    const handArea = document.getElementById('hand-area');
+    const currentCards = handArea.querySelectorAll('.card');
+    const cardsNeeded = 7 - currentCards.length;
+    
+    for (let i = 0; i < cardsNeeded; i++) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.isSelected = false;
+        card.style.position = 'relative'; // Keep them flowing in flexbox
+        
+        const rank = ranks[Math.floor(Math.random() * ranks.length)];
+        const suit = suits[Math.floor(Math.random() * suits.length)];
+        const isRed = (suit === '♥' || suit === '♦');
+        
+        card.innerHTML = `
+            <div style="position:absolute; top:5px; left:5px; font-weight:bold;">${rank}</div>
+            <div style="font-size: 30px; color: ${isRed ? '#d00' : '#000'};">${suit}</div>
+        `;
+
+        // Attach same selection logic
+        card.addEventListener('mousedown', (e) => {
+          card.isSelected = !card.isSelected;
+          card.classList.toggle('selected', card.isSelected);
+        });
+        
+        handArea.appendChild(card);
+    }
+}
+function discardSelected() {
+    if (gameState.discardsLeft <= 0) return;
+    const selected = document.querySelectorAll('.card.selected');
+    if (selected.length === 0) return;
+
+    const discardPile = document.getElementById('discard-pile');
+    const discardRect = discardPile.getBoundingClientRect();
+
+    selected.forEach(card => {
+        // 1. Get starting position
+        const startRect = card.getBoundingClientRect();
+        
+        // 2. Clone it for the flight animation so the hand layout doesn't break instantly
+        const flyCard = card.cloneNode(true);
+        flyCard.style.position = 'fixed';
+        flyCard.style.left = startRect.left + 'px';
+        flyCard.style.top = startRect.top + 'px';
+        flyCard.style.margin = '0';
+        document.body.appendChild(flyCard);
+
+        // 3. Remove original
+        card.remove();
+
+        // 4. Animate to target
+        flyCard.animate([
+            { transform: 'scale(1) rotate(0deg)' },
+            { left: discardRect.left + 'px', top: discardRect.top + 'px', transform: 'scale(0.3) rotate(360deg)' }
+        ], { duration: 500, easing: 'ease-in-out' })
+        .onfinish = () => {
+            flyCard.remove();
+            fillHand(); // Refill after animation
+        };
+    });
+
+    gameState.discardsLeft--;
+    updateUI();
+}
+
+
+// 2. Attach the listener (make sure this runs after the DOM loads)
+document.getElementById('discard-btn').addEventListener('click', discardSelected);
+  // The Physics Loop
+  function animate() {
+    if (activeCard && toggle.checked) {
+      // Lerp/Spring logic
+      pos.x += (mouseX - offset.x - pos.x) * 0.2;
+      pos.y += (mouseY - offset.y - pos.y) * 0.2;
+      
+      let rot = (mouseX - (pos.x + 50)) * 0.2;
+      
+      activeCard.style.left = pos.x + 'px';
+      activeCard.style.top = pos.y + 'px';
+      activeCard.style.transform = `rotate(${rot}deg) scale(1.05)`;
+    } else if (activeCard === null) {
+      // Reset rotation when released
+      document.querySelectorAll('.card').forEach(c => c.style.transform = 'rotate(0deg) scale(1)');
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+</script>
+</html>
