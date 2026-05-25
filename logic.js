@@ -2,6 +2,8 @@
 // logic.js — Pure functions only. No DOM. No gameState.
 // ============================================================
 
+import {SCORING_TABLE} from './game.js';
+
 /** Convert rank string → sortable number */
 export function rankToNum(r) {
   if (r === 'A') return 14;
@@ -17,7 +19,7 @@ export function rankToNum(r) {
  */
 export function getHandType(cards) {
   if (!Array.isArray(cards) || cards.length < 1) {
-    return { name: 'Invalid Hand', bonus: 0 };
+    return { name: 'Invalid Hand', baseChips: 0, baseMult: 0 };
   }
 
   const handSize = cards.length;
@@ -36,17 +38,24 @@ export function getHandType(cards) {
   const isFlush    = handSize >= 5 && cards.every(c => c.suit === cards[0].suit);
   const isStraight = handSize >= 5 && checkStraight(nums);
 
-  if (isFlush && isStraight)                              return { name: 'Straight Flush', bonus: 100 };
-  if (hasFour)                                            return { name: 'Four of a Kind', bonus: 80  };
-  if (tripleCount >= 2 || (tripleCount === 1 && pairCount >= 1))
-                                                          return { name: 'Full House',     bonus: 40  };
-  if (isFlush)                                            return { name: 'Flush',          bonus: 50  };
-  if (isStraight)                                         return { name: 'Straight',       bonus: 70  };
-  if (tripleCount === 1)                                  return { name: 'Three of a Kind',bonus: 30  };
-  if (pairCount >= 2)                                     return { name: 'Two Pair',       bonus: 20  };
-  if (pairCount === 1)                                    return { name: 'Pair',           bonus: 10  };
+  let handName = 'High Card';
 
-  return { name: 'High Card', bonus: 5 };
+  if (isFlush && isStraight) handName = 'Straight Flush';
+  if (hasFour) handName = 'Four of a Kind' ;
+  if (tripleCount >= 2 || (tripleCount === 1 && pairCount >= 1)) handName = 'Full House' ;
+  if (isFlush) handName = 'Flush' ;
+  if (isStraight) handName ='Straight';
+  if (tripleCount === 1) handName = 'Three of a Kind';
+  if (pairCount >= 2) handName = 'Two Pair';
+  if (pairCount === 1) handName = 'Pair';
+
+  const tableEntry = SCORING_TABLE.find(h => h.name === handName);
+
+  return{
+    name: handName,
+    baseChips: tableEntry.baseChips,
+    baseMult: tableEntry.baseMult
+  }
 }
 
 function checkStraight(sortedNums) {
@@ -58,4 +67,17 @@ function checkStraight(sortedNums) {
     return sortedNums.every((v, i) => v === wheel[i]);
   }
   return false;
+}
+
+export function calculateHandScore(handName, level, cards) {
+    const handData = SCORING_TABLE.find(h => h.name === handName) || { baseChips: 0, baseMult: 0 };
+    
+    // Total Chips = Base Chips for hand + Sum of ranks
+    const chipValue = cards.reduce((sum, c) => sum + rankToNum(c.rank), 0);
+    const totalChips = handData.baseChips + chipValue;
+    
+    // Total Mult = Base Mult
+    const totalMult = handData.baseMult;
+    
+    return { totalChips, totalMult, finalScore: totalChips * totalMult };
 }

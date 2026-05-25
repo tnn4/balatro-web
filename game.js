@@ -2,6 +2,9 @@
 // game.js — Pure state. Zero DOM. Zero side effects.
 // ============================================================
 
+import {getHandType} from './logic.js';
+import { calculateHandScore } from './logic.js';
+
 export const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 export const SUITS = ['♠','♥','♦','♣'];
 export const RED_SUITS = new Set(['♥','♦']);
@@ -14,15 +17,48 @@ export const BLIND_TYPES = [{name: "Small", mult: 1}, {name: "Big", mult: 1.5}, 
 
 export const HAND_SIZE     = 7;
 
+// Each object represents a row in your scoring chart
+export const SCORING_TABLE = [
+  { name: 'High Card',       baseChips: 5,  baseMult: 1 },
+  { name: 'Pair',            baseChips: 10, baseMult: 2 },
+  { name: 'Two Pair',        baseChips: 20, baseMult: 2 },
+  { name: 'Three of a Kind', baseChips: 30, baseMult: 3 },
+  { name: 'Straight',        baseChips: 30, baseMult: 4 },
+  { name: 'Flush',           baseChips: 35, baseMult: 4 },
+  { name: 'Full House',      baseChips: 40, baseMult: 4 },
+  { name: 'Four of a Kind',  baseChips: 60, baseMult: 7 },
+  { name: 'Straight Flush',  baseChips: 100, baseMult: 8 },
+  { name: 'Five of a Kind',  baseChips: 120, baseMult: 12 },
+  { name: 'Flush House',     baseChips: 140, baseMult: 14 },
+  { name: 'Flush Five',      baseChips: 160, baseMult: 16 }
+];
+
+/**
+ * Calculates score for a hand level (1-15).
+ * Logic: chips increase by a fixed amount per level, mult increases by +1 per level.
+ */
+export function getScoreForLevel(handName, level) {
+  const hand = SCORING_TABLE.find(h => h.name === handName);
+  if (!hand) return { chips: 0, mult: 0 };
+
+  // Adjust logic based on your specific scaling rules:
+  // Example: Chips = Base + (Level - 1) * 40, Mult = Base + (Level - 1)
+  const chips = hand.baseChips + (level - 1) * 40; 
+  const mult  = hand.baseMult  + (level - 1);
+  
+  return { chips, mult };
+}
+
 // The single source of truth. Never mutate directly — use the functions below.
 export let gameState = {
   score:        0,
   handsLeft:    4,
   discardsLeft: 4,
   anteLevel:    1,   // 1 | 2 | 3
-  blindType: BLIND_TYPES[0]["name"],
-  blindMult: BLIND_TYPES[0]["mult"],
-  blindTarget: ANTE_SCORE_REQUIREMENT[anteLevel] * blindMult,
+  blindType: "Small Blind",
+  blindMult: 1,
+  blindTarget: 100,
+  handLevels: [],
   deck:         [],
   hand:         [],  // array of { rank, suit, id } objects
   nextCardId:   0,
@@ -60,6 +96,11 @@ export function initGame() {
   gameState.discardsLeft = 4;
   gameState.blindType = BLIND_TYPES[0]["name"],
   gameState.blindMult = BLIND_TYPES[0]["mult"],
+  gameState.handLevels =     [ 
+      {"High Card": 1},{"Pair": 1},{"Two Pair": 1},
+      {"Three of a Kind":1},{"Straight": 1},{"Flush": 1},
+      {"Full House":1},{"Four of a Kind": 1},{"Straight Flush": 1}
+    ]
   gameState.anteLevel    = 1;
   gameState.blindTarget = ANTE_SCORE_REQUIREMENT[gameState.anteLevel] * gameState.blindMult;
   gameState.nextCardId   = 0;
@@ -93,14 +134,20 @@ export function playSelectedHand(handResult) {
   const selected = getSelected();
   if (selected.length === 0 || selected.length > 5) return false;
 
-  const points = (selected.length * 10) + handResult.bonus;
-  gameState.score      += points;
+  // 1. Get hand type
+  handResult = getHandType(selected);
+
+  // 2. Calculate Chipx x Mult using logic.js helper
+  const scoreData = calculateHandScore(handResult.name, gameState.anteLevel, selected);
+
+
+  gameState.score      += scoreData.finalScore;
   gameState.handsLeft  -= 1;
   gameState.hand        = gameState.hand.filter(c => !c.selected);
 
   refillHand();
   checkBlindProgress();
-  return points;
+  return scoreData.finalScore;
 }
 
 /** Remove selected cards from hand, decrement discardsLeft, refill. */

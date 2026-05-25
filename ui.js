@@ -15,7 +15,7 @@ import {
   RED_SUITS,
 } from './game.js';
 
-import { getHandType } from './logic.js';
+import { calculateHandScore, getHandType } from './logic.js';
 
 // ── Boot ─────────────────────────────────────────────────────
 
@@ -43,23 +43,69 @@ export function render() {
   // Render hand
   renderHand();
 
+  updateHandScore(gameState.score);
+
   // Update preview label
   updatePreview();
 
   // Button states
   el('play-btn').disabled    = gameState.handsLeft <= 0;
   el('discard-btn').disabled = gameState.discardsLeft <= 0;
+
+  
 }
 
 // ── Hand rendering ────────────────────────────────────────────
 
 function renderHand() {
+  console.log("Current hand state:", gameState.hand);
   const area = el('hand-area');
   area.innerHTML = '';
 
   for (const cardData of gameState.hand) {
     const div = buildCardEl(cardData);
     area.appendChild(div);
+  }
+}
+
+// -- Render Score --
+function updateHandScore(score){
+  console.log('Updating hand score');
+
+  const bankedScore = gameState.score;
+  let handScore = 0;
+
+  const selected = getSelected();
+
+  if (selected.length === 0){
+    el('chips-display').innerText = 'Chips: 0';
+    el('mult-display').innerText = 'Mult: 0';
+    el('hand-type-preview').innerText = 'Select cards...';
+    return;
+  }
+
+  const handType = getHandType(selected);
+
+  // Ensure handlevels is an object , default to 1 if level not set
+  const currentHandLevel = gameState.handLevels[handType.name] || 1;
+
+  const scoreData = calculateHandScore(handType.name, currentHandLevel, selected);
+
+  if (selected.length > 0){
+    const handType = getHandType(selected);
+    const {totalChips, totalMult} = calculateHandScore(handType.name, gameState.handLevels[handType.name], selected)
+
+    // Update labels
+    el('chips-display').innerText = `Chips: ${scoreData.totalChips}`;
+    el(`mult-display`).innerText = `Mult: ${scoreData.totalMult}`;
+    el('hand-type-preview').innerText = handType.name;
+    el('score-display').innerText = `Score: ${scoreData.finalScore}`;
+  }
+
+  if (handScore > 0){
+    el('score-display').innerText = `Score: ${bankedScore} + ${handScored}`;
+  } else {
+    el('score-display').innerText = `Score: ${bankedScore}`;
   }
 }
 
@@ -263,4 +309,9 @@ export function showPopup(headline, sub, color = '#4ade80') {
 function flashWarning(msg) {
   el('hand-validation-msg').innerText = `⚠ ${msg}`;
   setTimeout(() => { el('hand-validation-msg').innerText = ''; }, 1800);
+}
+
+export function updateScoringDisplay(chips, mult){
+  document.getElementById('chips-display').innerText = `Chips: ${chips}`
+  document.getElementById('mult-display').innerText = `Mult: ${mult}`
 }
