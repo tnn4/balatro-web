@@ -1,637 +1,313 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balatro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-  body { background: #1a1a1a; margin: 0; overflow: hidden; color: white; font-family: sans-serif; }
-.card { 
-  position: absolute; 
-  width: 100px; 
-  height: 150px; 
-  background: #ffffff; 
-  color: #000000; 
-  border-radius: 8px; 
-  cursor: grab; 
-  /* Updated to flex column for proper internal alignment */
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: center; 
-  user-select: none; 
-  z-index: 10; 
-  border: 1px solid #ccc; 
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+
+/* ── Reset & base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green-felt:   #1b5e38;
+  --felt-dark:    #143d27;
+  --felt-light:   #236b43;
+  --gold:         #f5c842;
+  --gold-dark:    #c99b1a;
+  --red:          #cc2200;
+  --card-bg:      #fdf6e3;
+  --card-border:  #222;
+  --pixel:        'Press Start 2P', monospace;
+  --shadow-hard:  4px 4px 0 #000;
 }
 
-/* The "Juice" state: Shifted up and glowing green */
-  .card.selected {
-    transform: translateY(-20px) !important; /* !important overrides the physics loop */
-    box-shadow: 0 0 15px rgba(0, 255, 0, 0.6) !important;
-    border-color: #0f0 !important;
-  }
-
-  #hand-area {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 200px;
-  background: rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  border-top: 2px dashed #555;
+body {
+  background: var(--green-felt);
+  /* pixel felt texture */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px,
+      transparent 1px, transparent 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px,
+      transparent 1px, transparent 4px
+    );
+  min-height: 100vh;
+  overflow: hidden;
+  font-family: var(--pixel);
+  color: #fff;
+  image-rendering: pixelated;
 }
 
-#discard-pile {
+/* ── Layout ───────────────────────────────────────────────── */
+
+#hud {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 100px;
-  height: 150px;
-  border: 2px dashed #777;
+  top: 0; left: 0; right: 0;
+  height: 64px;
+  background: var(--felt-dark);
+  border-bottom: 3px solid #000;
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #777;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+#score-display {
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-shadow: var(--shadow-hard);
+  letter-spacing: 1px;
 }
 
 #blind-status {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1000;
-    pointer-events: none; /* Allows clicking through the text */
+  font-size: 0.5rem;
+  color: #a8d5b5;
+  text-align: center;
 }
+
+/* Progress bar */
+#progress-wrap {
+  position: fixed;
+  top: 64px; left: 0; right: 0;
+  height: 8px;
+  background: #0a2a18;
+  border-bottom: 2px solid #000;
+  z-index: 100;
+}
+#progress-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px rgba(245,200,66,0.6);
+}
+
+/* ── Hand area ────────────────────────────────────────────── */
+
+#hand-area {
+  position: fixed;
+  bottom: 80px; left: 0; right: 0;
+  height: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  background: rgba(0,0,0,0.15);
+  border-top: 3px solid rgba(0,0,0,0.3);
+  overflow: visible;
+}
+
+/* ── Controls ─────────────────────────────────────────────── */
+
+#controls {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 80px;
+  background: var(--felt-dark);
+  border-top: 3px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 100;
+}
+
+button {
+  font-family: var(--pixel);
+  font-size: 0.45rem;
+  padding: 10px 14px;
+  border: 3px solid #000;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.08s, box-shadow 0.08s;
+  image-rendering: pixelated;
+  letter-spacing: 0.5px;
+}
+button:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 #000; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#play-btn    { background: #2563eb; color: #fff; }
+#discard-btn { background: var(--red); color: #fff; }
+#reset-btn   { background: #555; color: #ccc; }
+
+/* ── Sidebar info ─────────────────────────────────────────── */
+
+#sidebar {
+  position: fixed;
+  top: 80px; right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 200;
+}
+
+#hand-type-preview {
+  font-size: 0.55rem;
+  color: var(--gold);
+  text-shadow: var(--shadow-hard);
+  text-align: right;
+  max-width: 180px;
+}
+#hand-type-preview.preview-idle { color: #7aad90; }
+#hand-type-preview.preview-active { color: var(--gold); }
+
+#hand-validation-msg {
+  font-size: 0.45rem;
+  color: #ff6666;
+  text-align: right;
+  min-height: 1em;
+}
+
+/* ── Deck counter ─────────────────────────────────────────── */
+
+#deck-area {
+  position: fixed;
+  top: 80px; left: 12px;
+  background: var(--felt-dark);
+  border: 3px solid #000;
+  box-shadow: var(--shadow-hard);
+  padding: 8px 12px;
+  font-size: 0.45rem;
+  color: #a8d5b5;
+  z-index: 200;
+}
+
+/* ── Cards ────────────────────────────────────────────────── */
+
+.card {
+  position: relative;
+  width: 80px;
+  height: 120px;
+  background: var(--card-bg);
+  border: 3px solid var(--card-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-hard);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 4px 10px 0 #000;
+}
+
+.card.selected {
+  transform: translateY(-24px) !important;
+  box-shadow: 0 0 0 3px #4ade80, 4px 4px 0 #000 !important;
+  background: #f0ffe8;
+}
+
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-family: var(--pixel);
+}
+.card-corner.top-left    { top: 5px;  left: 5px; }
+.card-corner.bottom-right { bottom: 5px; right: 5px; transform: rotate(180deg); }
+
+.card-rank { font-size: 0.5rem; color: #111; font-weight: bold; }
+.card-suit { font-size: 0.55rem; }
+.card-suit.red { color: var(--red); }
+
+.card-center {
+  font-size: 2rem;
+  pointer-events: none;
+  line-height: 1;
+}
+.card-center.red { color: var(--red); }
+
+/* ── Physics toggle ───────────────────────────────────────── */
+
+#mode-toggle-label {
+  position: fixed;
+  top: 74px; left: 12px;
+  font-size: 0.35rem;
+  color: #7aad90;
+  cursor: pointer;
+  z-index: 300;
+  display: none; /* hidden until sidebar shows deck */
+}
+
+/* ── Popup ────────────────────────────────────────────────── */
+
+.popup {
+  position: fixed;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 2000;
+}
+.popup-headline {
+  font-family: var(--pixel);
+  font-size: 1.6rem;
+  text-shadow: 4px 4px 0 #000;
+  line-height: 1.2;
+}
+.popup-sub {
+  font-family: var(--pixel);
+  font-size: 0.7rem;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+  margin-top: 8px;
+}
+
 </style>
+</head>
+<body>
 
-<label style="position:fixed; top:10px; left:10px; z-index: 1000;">
-    <input type="checkbox" id="mode-toggle"> Enable Wiggle/Physics
-</label>
-
-<div id="blind-status" style="
-
-">
-    Blind: Small Blind (Target: 100)
+<!-- HUD bar -->
+<div id="hud">
+  <div id="score-display">Score: 0</div>
+  <div id="blind-status">Small Blind — Target: 100</div>
+  <label style="font-size:0.38rem; color:#7aad90; cursor:pointer;">
+    <input type="checkbox" id="mode-toggle"> Wiggle
+  </label>
 </div>
 
-<div id="labels-container" style="
-    position: fixed; 
-    top: 20px; 
-    right: 20px; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: flex-end; 
-    gap: 10px; /* This creates the 10px space between the two labels */
-    z-index: 1000;
-">
-    <div id="hand-validation-msg" style="color: #f00; font-size: 1em;"></div>
-    <div id="hand-type-preview" style="color: #ff0; font-size: 1.2em;">Select cards...</div>
+<!-- Progress bar -->
+<div id="progress-wrap">
+  <div id="progress-bar-fill" style="width:0%"></div>
 </div>
 
-<div id="deck-area" style="position: fixed; top: 180px; right: 20px; width: 100px; height: 50px; border: 1px solid #555; display: flex; align-items: center; justify-content: center; color: white;">
-  Deck: <span id="deck-count">52</span>
+<!-- Deck counter -->
+<div id="deck-area">DECK: <span id="deck-count">52</span></div>
+
+<!-- Sidebar preview -->
+<div id="sidebar">
+  <div id="hand-validation-msg"></div>
+  <div id="hand-type-preview" class="preview-idle">Select cards to play...</div>
 </div>
+
+<!-- Hand -->
 <div id="hand-area"></div>
-<div id="discard-pile">Discard</div>
 
-
-<div id="controls" style="text-align:center; padding: 20px; color: white;">
-  <div id="score-display" style="font-size: 2em; margin-bottom: 10px;">Score: 0</div>
-  <button id="play-btn" style="background: blue; color: white; padding: 10px 20px;">Play Hand (4 left)</button>
-  <button id="discard-btn" style="background: red; color: white; padding: 10px 20px;">Discard (4 left)</button>
-  <button id="reset-btn" style="padding: 10px 20px;">Reset Game</button>
+<!-- Controls -->
+<div id="controls">
+  <button id="play-btn">▶ Play Hand (4 left)</button>
+  <button id="discard-btn">✕ Discard (4 left)</button>
+  <button id="reset-btn">↺ Reset</button>
 </div>
 
-<script>
-
-// Add to your gameState
-let gameState = {
-  score: 0,
-  handsLeft: 4,
-  discardsLeft: 4,
-  anteLevel: 1 // 1, 2, or 3
-};
-
-  const toggle = document.getElementById('mode-toggle');
-  let activeCard = null;
-  let mouseX = 0, mouseY = 0;
-  let offset = { x: 0, y: 0 };
-  let pos = { x: 0, y: 0 }; // For physics
-
-// Add these arrays above the loop
-const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-const suits = ['♠', '♥', '♦', '♣'];
-
-function checkBlind() {
-  const targets = [100, 300, 500];
-  const target = targets[gameState.anteLevel - 1];
-  
-  if (gameState.score >= target) {
-    if (gameState.anteLevel < 3) {
-      gameState.anteLevel++;
-      alert("Blind Cleared! Next: " + targets[gameState.anteLevel - 1]);
-      // Reset hand/discard uses but keep score for progression
-      gameState.handsLeft = 4;
-      gameState.discardsLeft = 4;
-    } else {
-      alert("You beat the final blind! YOU WIN!");
-    }
-  }
-  
-  // Update UI
-  document.getElementById('blind-status').innerText = 
-    `Blind: Level ${gameState.anteLevel} (Target: ${targets[gameState.anteLevel - 1]})`;
-}
-
-function updateUI() {
-  document.getElementById('score-display').innerText = `Score: ${gameState.score}`;
-  document.getElementById('play-btn').innerText = `Play Hand (${gameState.handsLeft} left)`;
-  document.getElementById('discard-btn').innerText = `Discard (${gameState.discardsLeft} left)`;
-}
-
-function updateDeckDisplay() {
-    document.getElementById('deck-count').innerText = deck.length;
-}
-
-// Scoring Logic (The "Big Number" Pop)
-function getHandType(cards) {
-    const ranks = cards.map(c => c.rank).sort((a,b) => rankToNum(a) - rankToNum(b));
-    const suits = cards.map(c => c.suit);
-    
-    // Check Flush: All suits are the same
-    const isFlush = suits.every(s => s === suits[0]) && cards.length === 5;
-    
-    // Check Straight: Each rank is +1 of the previous
-    let isStraight = true;
-    for(let i = 0; i < ranks.length - 1; i++) {
-        if (rankToNum(ranks[i+1]) !== rankToNum(ranks[i]) + 1) isStraight = false;
-    }
-
-    // Check Pairs: Count occurrences
-    const counts = {};
-    ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
-const frequencies = Object.values(counts);
-  const pairCount = frequencies.filter(c => c === 2).length;
-    const hasThree = frequencies.includes(3);
-    
-
-    // --- RE-ORDERED PRIORITY ---
-    // 1. Check complex hands first (3 of a kind, Full House, etc)
-    if (isFlush) return { name: "Flush", bonus: 50 };
-    if (isStraight) return { name: "Straight", bonus: 70 };
-    if (hasThree && pairCount === 1) return { name: "Full House", bonus: 40 }; // Example
-    if (hasThree) return { name: "Three of a Kind", bonus: 30 };
-    
-// 2. Check pairs
-    if (pairCount === 2) return { name: "Two Pair", bonus: 20 };
-    if (pairCount === 1) return { name: "Pair", bonus: 10 };
-
-    return { name: "High Card", bonus: 0 };
-}
-function getHandType2(cards) {
-    const ranks = cards.map(c => c.rank).sort((a,b) => rankToNum(a) - rankToNum(b));
-    const suits = cards.map(c => c.suit);
-    
-    // Check Flush: All suits are the same
-    const isFlush = suits.every(s => s === suits[0]) && cards.length === 5;
-    
-    // Check Straight: Each rank is +1 of the previous
-    let isStraight = true;
-    for(let i = 0; i < ranks.length - 1; i++) {
-        if (rankToNum(ranks[i+1]) !== rankToNum(ranks[i]) + 1) isStraight = false;
-    }
-
-    // Check Pairs: Count occurrences
-    const counts = {};
-    ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
-    const pairs = Object.values(counts).filter(c => c === 2).length;
-
-    // Return score based on type
-    if (isFlush) return { name: "Flush", bonus: 50 };
-    if (isStraight) return { name: "Straight", bonus: 70 };
-    if (pairs === 2) return { name: "Two Pair", bonus: 20 };
-    if (pairs === 1) return { name: "Pair", bonus: 10 };
-    
-    return { name: "High Card", bonus: 0 };
-}
-
-// Helper to convert rank string to number for sorting
-function rankToNum(r) {
-    if (r === 'A') return 14;
-    if (r === 'K') return 13;
-    if (r === 'Q') return 12;
-    if (r === 'J') return 11;
-    return parseInt(r);
-}
-function scoreHand() {
-    if (gameState.handsLeft <= 0) return;
-    const selected = document.querySelectorAll('.card.selected');
-    if (selected.length === 0) return;
-
-    // Validation: Enforce 5 card limit
-    if (selected.length === 0) return;
-    if (selected.length > 5) {
-        alert("You can only play up to 5 cards!");
-        return;
-    }
-
-    const handResult = getHandType(Array.from(selected));
-    gameState.score += (selected.length * 10) + handResult.bonus;
-    
-    // UI Pop-up effect
-    const display = document.getElementById('score-display');
-    display.innerText = `${handResult.name}! +${handResult.bonus}`;
-    display.style.color = '#0f0';
-    setTimeout(() => { updateUI(); display.style.color = '#fff'; }, 1000);
-
-    selected.forEach(c => c.remove());
-    gameState.handsLeft--;
-    fillHand();
-    updateUI();
-
-
-// Trigger the pop-up
-showPopup(handResult.name.toUpperCase() + "!", "#0f0");
-}
-
-
-// Attach listeners
-document.getElementById('play-btn').addEventListener('click', scoreHand);
-document.getElementById('reset-btn').addEventListener('click', () => {
-  gameState = { score: 0, handsLeft: 4, discardsLeft: 4 };
-  updateUI();
-  // Add logic here to re-spawn 7 cards
-});
-
-function showPopup(text, color) {
-    const popup = document.createElement('div');
-    popup.innerText = text;
-    popup.style.position = 'fixed';
-    popup.style.top = '40%';
-    popup.style.left = '50%';
-    popup.style.transform = 'translate(-50%, -50%)';
-    popup.style.fontSize = '4rem';
-    popup.style.fontWeight = 'bold';
-    popup.style.color = color;
-    popup.style.pointerEvents = 'none'; // Don't block clicks
-    popup.style.zIndex = '2000';
-    popup.style.textShadow = '0 0 10px rgba(0,0,0,0.5)';
-    document.body.appendChild(popup);
-
-    // Animate the "Juice"
-    popup.animate([
-        { opacity: 0, transform: 'translate(-50%, -50%) scale(0.5)' },
-        { opacity: 1, transform: 'translate(-50%, -50%) scale(1.2)' },
-        { opacity: 0, transform: 'translate(-50%, -50%) scale(1.5)' }
-    ], { duration: 1000, easing: 'ease-out' })
-    .onfinish = () => popup.remove();
-}
-
-let deck = [];
-
-// Initialize or Reset the deck
-function initDeck() {
-    deck = [];
-    const suits = ['♠', '♥', '♦', '♣'];
-    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-    
-    for (let s of suits) {
-        for (let r of ranks) {
-            deck.push({ rank: r, suit: s });
-        }
-    }
-    
-    // Fisher-Yates Shuffle
-    for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-    updateDeckDisplay();
-}
-initDeck();
-
-// Draw a single card from the deck
-function drawCard() {
-    if (deck.length === 0) {
-        alert("Deck empty! Reshuffling...");
-        initDeck();
-    }
-    const card = deck.pop();
-    updateDeckDisplay();
-    return card;
-}
-
-function getRankValue(r) {
-    if (['J', 'Q', 'K'].includes(r)) return 10;
-    if (r === 'A') return 11;
-    return parseInt(r);
-}
-
-// 2. Scoring Button Logic
-function calculateScore(selectedCards) {
-    let handChips = 10; // Base for a Pair (simplified)
-    let cardChips = selectedCards.reduce((acc, c) => acc + c.chips, 0);
-    let mult = 2; // Base multiplier
-    
-    return (handChips + cardChips) * mult;
-}
-function createNCards(num=5){
-  if (typeof num !== 'number'){
-    console.log('[createNCards()] ERROR: argument not number');
-    return
-  }
-  // Update the card creation loop
-for(let i = 0; i < num; i++) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.isSelected = false; // Initialize state
-    
-    const rank = ranks[Math.floor(Math.random() * ranks.length)];
-    const suit = suits[Math.floor(Math.random() * suits.length)];
-    const isRed = (suit === '♥' || suit === '♦');
-    
-    card.style.left = (50 + i * 120) + 'px';
-    card.style.top = '200px';
-    
-    card.innerHTML = `
-        <div style="position:absolute; top:5px; left:5px; font-weight:bold;">${rank}</div>
-        <div style="font-size: 30px; color: ${isRed ? '#d00' : '#000'};">${suit}</div>
-    `;
-
-    // ADD THIS: Toggle selection on click
-    card.addEventListener('mousedown', (e) => {
-      // Prevent selection toggle from interfering with dragging if desired
-      card.isSelected = !card.isSelected;
-      card.classList.toggle('selected', card.isSelected);
-    });
-    
-    document.body.appendChild(card);
-}
-}
-// 1. Get the hand area reference
-const handArea = document.getElementById('hand-area');
-
-// 2. Update the loop to append to the hand area
-for(let i = 0; i < 7; i++) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.isSelected = false;
-    
-    // Change: Set position to relative so it respects the Flexbox in hand-area
-    card.style.position = 'relative'; 
-    
-    const rank = ranks[Math.floor(Math.random() * ranks.length)];
-    const suit = suits[Math.floor(Math.random() * suits.length)];
-    const isRed = (suit === '♥' || suit === '♦');
-    
-    card.rank = rank;
-    card.suit = suit;
-
-    card.innerHTML = `
-        <div style="position:absolute; top:5px; left:5px; font-weight:bold;">${rank}</div>
-        <div style="font-size: 30px; color: ${isRed ? '#d00' : '#000'};">${suit}</div>
-    `;
-
-    card.addEventListener('mousedown', (e) => {
-      card.isSelected = !card.isSelected;
-      card.classList.toggle('selected', card.isSelected);
-    });
-    
-    // Change: Append to handArea instead of document.body
-    handArea.appendChild(card);
-}
-
-
-  window.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-    
-    if (activeCard && !toggle.checked) {
-      activeCard.style.left = (mouseX - offset.x) + 'px';
-      activeCard.style.top = (mouseY - offset.y) + 'px';
-    }
-  });
-/*
-  document.body.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('card')) {
-      activeCard = e.target;
-      offset.x = mouseX - activeCard.offsetLeft;
-      offset.y = mouseY - activeCard.offsetTop;
-      pos = { x: activeCard.offsetLeft, y: activeCard.offsetTop };
-    }
-  });
-*/
-
-document.body.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('card')) {
-        const original = e.target;
-        
-        // 1. Create a "Ghost" card for dragging
-        activeCard = original.cloneNode(true);
-        activeCard.style.position = 'absolute';
-        activeCard.style.zIndex = '1000';
-        activeCard.style.pointerEvents = 'none'; // So it doesn't block mouse events
-        
-        // 2. Hide the original so it feels like you "picked it up"
-        original.style.opacity = '0.3';
-        
-        // 3. Set the ghost's position
-        const rect = original.getBoundingClientRect();
-        activeCard.style.left = rect.left + 'px';
-        activeCard.style.top = rect.top + 'px';
-        
-        offset.x = mouseX - rect.left;
-        offset.y = mouseY - rect.top;
-        
-        document.body.appendChild(activeCard);
-        
-        // Store the original reference so we know what we are dragging
-        activeCard.originalRef = original;
-
-        updatePreviewLabel();
-    }
-});
-
-function updatePreviewLabel() {
-    const selected = document.querySelectorAll('.card.selected');
-    const validationMsg = document.getElementById('hand-validation-msg');
-    const preview = document.getElementById('hand-type-preview');
-    
-    // 1. Logic: Constraint Check (Max 5)
-    if (selected.length > 5) {
-        validationMsg.innerText = "⚠ Too many cards! Max 5.";
-        preview.innerText = "---"; // Hide hand type when invalid
-        return;
-    } else {
-        validationMsg.innerText = ""; // Clear warning
-    }
-
-    // 2. Logic: Hand Type Detection (Only if <= 5)
-    if (selected.length === 0) {
-        preview.innerText = "Select cards...";
-    } else {
-        const result = getHandType(Array.from(selected));
-        preview.innerText = `Detected: ${result.name}`;
-    }
-}
-
-function updatePreviewLabel2() {
-    const selected = document.querySelectorAll('.card.selected');
-    const preview = document.getElementById('hand-type-preview');
-    
-    if (selected.length === 0) {
-        preview.innerText = "Select cards...";
-    } else if (selected.length > 5) {
-        preview.innerText = "Too many cards! (Max 5)";
-        preview.style.color = "#f00";
-    } else {
-        // We evaluate based on the current selection
-        const result = getHandType(Array.from(selected));
-        preview.innerText = `Detected: ${result.name}`;
-        preview.style.color = "#ff0";
-    }
-}
-
-/*
- window.addEventListener('mouseup', () => {
-  if (!activeCard) return;
-
-  const handArea = document.getElementById('hand-area');
-  const rect = handArea.getBoundingClientRect();
-  
-  // Check if dropped inside the hand area
-  if (mouseX >= rect.left && mouseX <= rect.right && 
-      mouseY >= rect.top && mouseY <= rect.bottom) {
-    
-    // Snap-back: Reset transform and append to hand container
-    activeCard.style.position = 'relative'; // Remove absolute positioning
-    activeCard.style.left = 'auto';
-    activeCard.style.top = 'auto';
-    activeCard.style.transform = 'rotate(0deg) scale(1)';
-    handArea.appendChild(activeCard);
-  }
-  
-  activeCard = null;
-});
-*/
-
-window.addEventListener('mouseup', () => {
-    if (activeCard) {
-        const original = activeCard.originalRef;
-        const handArea = document.getElementById('hand-area');
-        const rect = handArea.getBoundingClientRect();
-        
-        // If dropped in hand area, restore visibility
-        if (mouseX >= rect.left && mouseX <= rect.right && 
-            mouseY >= rect.top && mouseY <= rect.bottom) {
-            original.style.opacity = '1';
-        } else {
-            // If dropped outside, maybe discard or return? 
-            // For now, just restore visibility.
-            original.style.opacity = '1';
-        }
-        
-        // Clean up the ghost
-        activeCard.remove();
-        activeCard = null;
-    }
-});
-
-// Discard Logic
-
-// 1. New function to keep the hand at 7 cards
-function fillHand() {
-    const handArea = document.getElementById('hand-area');
-    const currentCards = handArea.querySelectorAll('.card');
-    const cardsNeeded = 7 - currentCards.length;
-    
-    for (let i = 0; i < cardsNeeded; i++) {
-        const cardData = drawCard(); // Draw from real deck
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.rank = cardData.rank;
-        card.suit = cardData.suit;
-        card.isSelected = false;
-        card.style.position = 'relative'; // Keep them flowing in flexbox
-        
-        const rank = ranks[Math.floor(Math.random() * ranks.length)];
-        const suit = suits[Math.floor(Math.random() * suits.length)];
-        const isRed = (suit === '♥' || suit === '♦');
-        
-        card.innerHTML = `
-            <div style="position:absolute; top:5px; left:5px; font-weight:bold;">${rank}</div>
-            <div style="font-size: 30px; color: ${isRed ? '#d00' : '#000'};">${suit}</div>
-        `;
-
-        // Attach same selection logic
-        card.addEventListener('mousedown', (e) => {
-          card.isSelected = !card.isSelected;
-          card.classList.toggle('selected', card.isSelected);
-        });
-        
-        handArea.appendChild(card);
-    }
-}
-function discardSelected() {
-    if (gameState.discardsLeft <= 0) return;
-    const selected = document.querySelectorAll('.card.selected');
-    if (selected.length === 0) return;
-
-    const discardPile = document.getElementById('discard-pile');
-    const discardRect = discardPile.getBoundingClientRect();
-
-    selected.forEach(card => {
-        // 1. Get starting position
-        const startRect = card.getBoundingClientRect();
-        
-        // 2. Clone it for the flight animation so the hand layout doesn't break instantly
-        const flyCard = card.cloneNode(true);
-        flyCard.style.position = 'fixed';
-        flyCard.style.left = startRect.left + 'px';
-        flyCard.style.top = startRect.top + 'px';
-        flyCard.style.margin = '0';
-        document.body.appendChild(flyCard);
-
-        // 3. Remove original
-        card.remove();
-
-        // 4. Animate to target
-        flyCard.animate([
-            { transform: 'scale(1) rotate(0deg)' },
-            { left: discardRect.left + 'px', top: discardRect.top + 'px', transform: 'scale(0.3) rotate(360deg)' }
-        ], { duration: 500, easing: 'ease-in-out' })
-        .onfinish = () => {
-            flyCard.remove();
-            fillHand(); // Refill after animation
-        };
-    });
-
-    gameState.discardsLeft--;
-    updateUI();
-}
-
-
-// 2. Attach the listener (make sure this runs after the DOM loads)
-document.getElementById('discard-btn').addEventListener('click', discardSelected);
-  // The Physics Loop
-  function animate() {
-    if (activeCard && toggle.checked) {
-      // Lerp/Spring logic
-      pos.x += (mouseX - offset.x - pos.x) * 0.2;
-      pos.y += (mouseY - offset.y - pos.y) * 0.2;
-      
-      let rot = (mouseX - (pos.x + 50)) * 0.2;
-      
-      activeCard.style.left = pos.x + 'px';
-      activeCard.style.top = pos.y + 'px';
-      activeCard.style.transform = `rotate(${rot}deg) scale(1.05)`;
-    } else if (activeCard === null) {
-      // Reset rotation when released
-      document.querySelectorAll('.card').forEach(c => c.style.transform = 'rotate(0deg) scale(1)');
-    }
-    requestAnimationFrame(animate);
-  }
-  animate();
-</script>
+<script type="module" src="ui.js"></script>
+</body>
 </html>
