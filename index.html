@@ -89,6 +89,25 @@ body {
   box-shadow: 0 0 8px rgba(245,200,66,0.6);
 }
 
+.centered-headline {
+  /* Positioning context */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  
+  /* Precision centering */
+  transform: translate(-50%, -50%);
+  
+  /* Text styling */
+  text-align: center;
+  width: 100%;
+  padding: 0 20px; /* Ensures text doesn't hit screen edges on small devices */
+  box-sizing: border-box;
+  
+  /* Optional: Prevents text from being selected while dragging/clicking */
+  user-select: none;
+}
+
 /* ── Hand area ────────────────────────────────────────────── */
 
 #hand-area {
@@ -105,6 +124,26 @@ body {
   overflow: visible;
 }
 
+/* -- Overlay -- */
+.overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+}
+
+.overlay-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+  max-width: 80%;
+}
 /* ── Controls ─────────────────────────────────────────────── */
 
 #controls {
@@ -226,6 +265,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .card-rank { font-size: 0.5rem; color: #111; font-weight: bold; }
 .card-suit { font-size: 0.55rem; }
 .card-suit.red { color: var(--red); }
+.card-suit.black {color: var(--black); }
 
 .card-center {
   font-size: 2rem;
@@ -279,6 +319,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 <div id="hud">
 <div id="scoring-area" style="display: flex; gap: 20px; font-family: 'Press Start 2P'; font-size: 0.8rem; margin-top: 10px;">
   <div id="chips-display" style="color: #60a5fa; text-shadow: 2px 2px 0 #000;">Chips: 0</div>
+  <div id="x-display" style="color: #ffffff; text-shadow: 2px 2px 0 #000;">X</div>
   <div id="mult-display" style="color: #ef4444; text-shadow: 2px 2px 0 #000;">Mult: 0</div>
 </div>
   <div id="score-display">Score: 0</div>
@@ -296,6 +337,20 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 <!-- Deck counter -->
 <div id="deck-area">DECK: <span id="deck-count">52</span></div>
 
+<div id="discard-pile" style="
+  position: fixed;
+  top: 140px; left: 12px;
+  background: var(--felt-dark);
+  border: 3px solid #000;
+  box-shadow: var(--shadow-hard);
+  padding: 8px 12px;
+  font-size: 0.45rem;
+  color: #ff6666; /* Reddish to distinguish from deck */
+  z-index: 200;
+  cursor: pointer;
+">
+DISCARD: <span id="discard-count">0</span>
+</div>
 <!-- Sidebar preview -->
 <div id="sidebar">
   <div id="hand-validation-msg"></div>
@@ -310,6 +365,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   <button id="play-btn">▶ Play Hand (4 left)</button>
   <button id="discard-btn">✕ Discard (4 left)</button>
   <button id="reset-btn">↺ Reset</button>
+  <button id="adv-round-btn">Adv Round</button>
 </div>
 
 <script type="module" src="ui.js"></script>

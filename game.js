@@ -5,14 +5,16 @@
 import {getHandType} from './logic.js';
 import { calculateHandScore } from './logic.js';
 
+
 export const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 export const SUITS = ['♠','♥','♦','♣'];
+export const BLACK_SUITS = new Set(['♣','♠'])
 export const RED_SUITS = new Set(['♥','♦']);
 
-export const ANTE_SCORE_REQUIREMENT = [100,300,800,2000,5000,11000,20000,35000,50000]
-export const BLIND_TARGETS = [100, 300, 500];
-export const BLIND_NAMES   = ['Small Blind', 'Big Blind', 'Boss Blind'];
-export const BLIND_LEVELS = [1, 1.5, 2]
+export const ANTE_SCORE_TARGETS = [100,300,800,2000,5000,11000,20000,35000,50000]
+export const BLIND_SCORE_TARGETS = [100, 300, 500];
+export const BLINDS   = ['Small Blind', 'Big Blind', 'Boss Blind'];
+export const BLIND_MULT_LEVELS = [1, 1.5, 2]
 export const BLIND_TYPES = [{name: "Small", mult: 1}, {name: "Big", mult: 1.5}, {name: "Boss", mult: 2}]
 
 export const HAND_SIZE     = 7;
@@ -51,16 +53,18 @@ export function getScoreForLevel(handName, level) {
 
 // The single source of truth. Never mutate directly — use the functions below.
 export let gameState = {
+  currentRound: 0,
   score:        0,
   handsLeft:    4,
   discardsLeft: 4,
   anteLevel:    1,   // 1 | 2 | 3
-  blindType: "Small Blind",
+  currentBlind: "Small Blind",
   blindMult: 1,
   blindTarget: 100,
   handLevels: [],
   deck:         [],
   hand:         [],  // array of { rank, suit, id } objects
+  discardPile: [],
   nextCardId:   0,
 };
 
@@ -68,9 +72,13 @@ export let gameState = {
 
 export function buildShuffledDeck() {
   const deck = [];
-  for (const suit of SUITS)
-    for (const rank of RANKS)
-      deck.push({ rank, suit });
+  for (const suit of SUITS){
+    for (const rank of RANKS){
+      const color = RED_SUITS.has(suit) ? '#d00': '#000';
+      deck.push({ rank, suit, color });
+    }
+  }
+    
 
   // Fisher-Yates
   for (let i = deck.length - 1; i > 0; i--) {
@@ -78,6 +86,41 @@ export function buildShuffledDeck() {
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
+}
+
+export function resetDeck(){
+  const G = gameState;
+  // refill deck
+  G.deck =  buildShuffledDeck();
+  // reset hand
+  G.hand = [];
+  G.hand = refillHandFromDeck(G.Deck);
+}
+
+export function resetRound(){
+  console.log("Resetting round");
+  const G = gameState;
+
+  G.Deck = buildShuffledDeck();
+  refillHand();
+  console.log("[Reset round]: Current hand state:", G.hand);
+  G.handsLeft = 5;
+  G.roundsLeft = 3;
+}
+
+function makeRed(){
+  // logic.js - Inside your card creation loop
+  const suit = suits[Math.floor(Math.random() * suits.length)];
+
+  // Logic: Check if the suit is red (Hearts or Diamonds)
+  // All other suits (Clubs and Spades) will default to black
+  const isRed = (suit === '♥' || suit === '♦');
+  const cardColor = isRed ? '#d00' : '#000'; // Red for hearts/diamonds, Black for others
+
+  card.innerHTML = `
+    <div style="position:absolute; top:5px; left:5px; font-weight:bold; color: ${cardColor};">${rank}</div>
+    <div style="font-size: 30px; color: ${cardColor};">${suit}</div>
+  `;
 }
 
 // ── Card factory ─────────────────────────────────────────────
@@ -94,19 +137,22 @@ export function initGame() {
   gameState.score        = 0;
   gameState.handsLeft    = 4;
   gameState.discardsLeft = 4;
-  gameState.blindType = BLIND_TYPES[0]["name"],
-  gameState.blindMult = BLIND_TYPES[0]["mult"],
+  gameState.currentBlind = BLINDS[0],
+  gameState.blindMult = BLIND_MULT_LEVELS[0],
   gameState.handLevels =     [ 
       {"High Card": 1},{"Pair": 1},{"Two Pair": 1},
       {"Three of a Kind":1},{"Straight": 1},{"Flush": 1},
       {"Full House":1},{"Four of a Kind": 1},{"Straight Flush": 1}
     ]
+  gameState.currentRound = 1;
+  
   gameState.anteLevel    = 1;
-  gameState.blindTarget = ANTE_SCORE_REQUIREMENT[gameState.anteLevel] * gameState.blindMult;
+  gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel] * gameState.blindMult;
   gameState.nextCardId   = 0;
   gameState.deck         = buildShuffledDeck();
   gameState.hand         = [];
   refillHand();
+  console.log("Initialized Game");
 }
 
 /** Draw cards from deck until hand has HAND_SIZE cards. */
@@ -115,6 +161,14 @@ export function refillHand() {
     const drawn = gameState.deck.pop();
     gameState.hand.push(makeCard(gameState, drawn));
   }
+}
+
+//** returns a list of cards */
+export function refillHandFromDeck(deck) {
+  let hand = [];
+  const drawn = deck.pop();
+  hand.push(drawn);
+  return hand;
 }
 
 /** Toggle selected state on a card by id. */
@@ -164,13 +218,32 @@ export function discardSelected() {
 
 /** Returns { cleared: bool, won: bool } */
 export function checkBlindProgress() {
-  const target = BLIND_TARGETS[gameState.anteLevel - 1];
+  const target = BLIND_SCORE_TARGETS[gameState.anteLevel - 1];
   if (gameState.score < target) return { cleared: false, won: false };
 
-  if (gameState.anteLevel >= 3) return { cleared: true, won: true };
+  
+  gameState.currentRound++;
 
-  gameState.anteLevel++;
-  gameState.handsLeft    = 5;
-  gameState.discardsLeft = 3;
+  // advance the ante once past round 3
+  if (gameState.currentRound % 3 === 0 & gameState.currentRound !== 0 ){
+    gameState.anteLevel++;
+    gameState.currentRound = 1;
+  }
+  
+  resetRound();
   return { cleared: true, won: false };
+}
+
+export function advanceRound() {
+  gameState.currentRound++;
+    // advance the ante once past round 3 / Boss Blind
+  if (gameState.currentRound % 3 === 1 & gameState.currentRound !== 0 ){
+    gameState.anteLevel++;
+    
+    gameState.currentRound = 1;
+  }
+  console.log(`[advanceRound] ante-level=${gameState.anteLevel}`)
+  gameState.currentBlind = BLINDS[gameState.currentRound - 1];
+  gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel-1];
+  resetRound();
 }

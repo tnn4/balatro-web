@@ -10,16 +10,22 @@ import {
   getSelected,
   playSelectedHand,
   discardSelected,
-  BLIND_TARGETS,
-  BLIND_NAMES,
+  advanceRound,
+  BLIND_SCORE_TARGETS,
+  BLINDS,
   RED_SUITS,
 } from './game.js';
 
 import { calculateHandScore, getHandType } from './logic.js';
+import {failQuotes} from './quotes.js'
+
+const G = gameState;
 
 // ── Boot ─────────────────────────────────────────────────────
-
+// This should be only run once
+console.log("Running ui.js");
 initGame();
+initRender();
 render();
 
 // ── Core render — called after every state change ─────────────
@@ -30,11 +36,13 @@ export function render() {
   el('play-btn').innerText         = `▶ Play Hand  (${gameState.handsLeft} left)`;
   el('discard-btn').innerText      = `✕ Discard  (${gameState.discardsLeft} left)`;
   el('deck-count').innerText       = gameState.deck.length;
-
+  el('discard-pile').innerText = `DISCARD: ${gameState.discardPile.length}`;
   // Blind info
-  const target = BLIND_TARGETS[gameState.anteLevel - 1];
-  const name   = BLIND_NAMES[gameState.anteLevel - 1];
-  el('blind-status').innerText     = `${name}  —  Target: ${target}`;
+  const target = BLIND_SCORE_TARGETS[gameState.anteLevel - 1];
+  console.log(`Current ante level: ${gameState.anteLevel}`)
+  const name   = BLINDS[gameState.anteLevel - 1];
+  const currentRound = G.currentRound;
+  el('blind-status').innerText  = `Ante: ${G.anteLevel} Round:${currentRound} ${gameState.currentBlind}  —  Target: ${gameState.blindTarget}`;
 
   // Progress bar
   const pct = Math.min(100, Math.round((gameState.score / target) * 100));
@@ -42,6 +50,7 @@ export function render() {
 
   // Render hand
   renderHand();
+  renderSuitColors();
 
   updateHandScore(gameState.score);
 
@@ -52,7 +61,13 @@ export function render() {
   el('play-btn').disabled    = gameState.handsLeft <= 0;
   el('discard-btn').disabled = gameState.discardsLeft <= 0;
 
-  
+  // Game over
+  if (gameState.handsLeft === 0 && gameState.score < gameState.blindTarget){
+    console.log("GAME OVER");
+    const randomFailQuote = failQuotes[Math.floor(Math.random() * failQuotes.length)]
+    setTimeout(() => showHeadline("Game Over", "game-over", ), 2);
+    
+  }
 }
 
 // ── Hand rendering ────────────────────────────────────────────
@@ -68,6 +83,19 @@ function renderHand() {
   }
 }
 
+function renderSuitColors(){
+  for (const cardData of gameState.hand){
+    const cardEl = document.createElement('div');
+    cardEl.className = 'card';
+
+// Simply apply the color property we baked in earlier
+    cardEl.innerHTML = `
+        <div style="font-weight:bold; color: ${cardData.color};">${cardData.rank}</div>
+        <div style="font-size: 30px; color: ${cardData.color};">${cardData.suit}</div>
+    `;
+  }
+}
+
 // -- Render Score --
 function updateHandScore(score){
   console.log('Updating hand score');
@@ -78,11 +106,12 @@ function updateHandScore(score){
   const selected = getSelected();
 
   if (selected.length === 0){
-    el('chips-display').innerText = 'Chips: 0';
-    el('mult-display').innerText = 'Mult: 0';
+    el('chips-display').innerText = '0';
+    el('mult-display').innerText = '0';
     el('hand-type-preview').innerText = 'Select cards...';
     return;
   }
+
 
   const handType = getHandType(selected);
 
@@ -96,8 +125,8 @@ function updateHandScore(score){
     const {totalChips, totalMult} = calculateHandScore(handType.name, gameState.handLevels[handType.name], selected)
 
     // Update labels
-    el('chips-display').innerText = `Chips: ${scoreData.totalChips}`;
-    el(`mult-display`).innerText = `Mult: ${scoreData.totalMult}`;
+    el('chips-display').innerText = `${scoreData.totalChips}`;
+    el(`mult-display`).innerText = `${scoreData.totalMult}`;
     el('hand-type-preview').innerText = handType.name;
     el('score-display').innerText = `Score: ${scoreData.finalScore}`;
   }
@@ -111,19 +140,21 @@ function updateHandScore(score){
 
 function buildCardEl(cardData) {
   const isRed = RED_SUITS.has(cardData.suit);
+  console.log(`isRed = ${isRed}`);
   const div   = document.createElement('div');
   div.className = 'card' + (cardData.selected ? ' selected' : '');
   div.dataset.id = cardData.id;
 
+  // Change colors to black or red
   div.innerHTML = `
     <div class="card-corner top-left">
       <span class="card-rank">${cardData.rank}</span>
-      <span class="card-suit ${isRed ? 'red' : ''}">${cardData.suit}</span>
+      <span class="card-suit" style="color:${isRed ? 'red' : 'black'}">${cardData.suit}</span>
     </div>
-    <div class="card-center ${isRed ? 'red' : ''}">${cardData.suit}</div>
+    <div class="card-center" style="color:${isRed ? 'red' : 'black'}">${cardData.suit}</div>
     <div class="card-corner bottom-right">
       <span class="card-rank">${cardData.rank}</span>
-      <span class="card-suit ${isRed ? 'red' : ''}">${cardData.suit}</span>
+      <span class="card-suit" style="color:${isRed ? 'red' : 'black'}">${cardData.suit}</span>
     </div>
   `;
 
@@ -180,29 +211,78 @@ function handlePlayHand() {
   render();
 }
 
-function handleDiscard() {
-  if (gameState.discardsLeft <= 0) return;
-  const ok = discardSelected();
-  if (!ok) { flashWarning('Select cards to discard!'); return; }
+async function handleDiscard() {
+  const selected = getSelected();
+  if (selected.length === 0){
+    flashWarning('Select cards first!');
+  }
+
+  const discardPileEl = el('discard-pile');
+  const rect = discardPileEl.getBoundingClientRect();
+
+  // 1. Snapshot position for all selected cards before modifying state
+  const animations = selected.map(cardData => {
+    const cardEl = document.querySelector(`[data-id="${cardData.id}"]`);
+    const startRect = cardEl.getBoundingClientRect();
+
+    // Hide original element immediately
+    cardEl.style.opacity = '0';
+    return {cardData, startRect };
+  });
+
+  discardSelected();
+  // Animation sequence for each card
+  for (const {cardData, startRect} of animations){
+
+    G.discardPile.push(cardData);
+    // Create a clone for the "flight"
+    const flyCard = buildCardEl(cardData);
+    flyCard.style.position = 'fixed';
+    flyCard.style.left = startRect.left + 'px';
+    flyCard.style.top = startRect.top + 'px';
+    flyCard.style.zIndex = '1000';
+    document.body.appendChild(flyCard);
+
+    await flyCard.animate([
+      { transform: 'scale(1) rotate(0deg)'},
+      {left: rect.left + 'px', top: rect.top + 'px,', transform: 'scale(0.2) rotate(360deg)'},
+    ], { duration: 100, easing: 'ease-in-out'}).finished;
+
+    flyCard.remove();
+  }
+
+  
   render();
 }
+
 
 function handleReset() {
   initGame();
   render();
+  const gameOverLabel = document.getElementById("game-over");
+  if (gameOverLabel){
+    gameOverLabel.remove();
+  }
+}
+
+// Advance round for testing
+function handleAdvRound() {
+  // Call advance round in game
+  advanceRound();
+  render();
 }
 
 function checkBlindResult() {
-  const target = BLIND_TARGETS[gameState.anteLevel - 1];
+  const target = BLIND_SCORE_TARGETS[gameState.anteLevel - 1];
   // anteLevel was already bumped inside playSelectedHand → checkBlindProgress
   // We check if we just cleared by seeing if hands/discards were reset
   if (gameState.handsLeft === 4 && gameState.discardsLeft === 4 && gameState.score > 0) {
     const prevLevel = gameState.anteLevel - 1;
     if (prevLevel >= 1) {
-      setTimeout(() => showPopup('BLIND CLEARED!', `Next: ${BLIND_TARGETS[gameState.anteLevel - 1]}`, '#facc15'), 600);
+      setTimeout(() => showPopup('BLIND CLEARED!', `Next: ${BLIND_SCORE_TARGETS[gameState.anteLevel - 1]}`, '#facc15'), 600);
     }
   }
-  if (gameState.anteLevel === 3 && gameState.score >= BLIND_TARGETS[2]) {
+  if (gameState.BLINDS === 'Boss Blind' && gameState.score >= BLIND_SCORE_TARGETS[gameState.anteLevel -1 ]) {
     setTimeout(() => showPopup('YOU WIN!', '🏆', '#f472b6'), 800);
   }
 }
@@ -212,6 +292,7 @@ function checkBlindResult() {
 el('play-btn').addEventListener('click', handlePlayHand);
 el('discard-btn').addEventListener('click', handleDiscard);
 el('reset-btn').addEventListener('click', handleReset);
+el('adv-round-btn').addEventListener('click', handleAdvRound);
 
 // ── Physics / wiggle drag ─────────────────────────────────────
 
@@ -306,12 +387,53 @@ export function showPopup(headline, sub, color = '#4ade80') {
   ], { duration: 1100, easing: 'ease-out' }).onfinish = () => popup.remove();
 }
 
+export function showHeadline(headline, id, sub, color = "#000000"){
+  const hl = document.createElement('div');
+  hl.className = 'headline';
+  // Much cleaner
+  hl.innerHTML = `<div id="${id}" class="headline centered-headline" style="color:${color}">${headline}</div>n
+    <div id=${id} class="popup-sub">${sub}</div>`;
+  document.body.appendChild(hl);
+}
+
 function flashWarning(msg) {
   el('hand-validation-msg').innerText = `⚠ ${msg}`;
   setTimeout(() => { el('hand-validation-msg').innerText = ''; }, 1800);
 }
 
 export function updateScoringDisplay(chips, mult){
-  document.getElementById('chips-display').innerText = `Chips: ${chips}`
-  document.getElementById('mult-display').innerText = `Mult: ${mult}`
+  document.getElementById('chips-display').innerText = `${chips}`
+  document.getElementById('mult-display').innerText = `${mult}`
+}
+
+export function initRender() {
+  el('discard-pile').addEventListener('click', () => {
+    const pile = gameState.discardPile;
+    if (pile.length === 0) return;
+
+    // Create container
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    
+    // Header & Close Button
+    overlay.innerHTML = `
+      <h2 style="margin-bottom: 20px;">Discard Pile (${pile.length})</h2>
+      <div id="overlay-cards" class="overlay-content"></div>
+      <button id="close-overlay" style="margin-top: 20px;">Close</button>
+    `;
+
+    // Append cards to the inner container
+    const cardContainer = overlay.querySelector('#overlay-cards');
+    pile.forEach(cardData => {
+        // We use buildCardEl but strip the pointer events to make them static
+        const cardEl = buildCardEl(cardData);
+        cardEl.style.cursor = 'default';
+        cardContainer.appendChild(cardEl);
+    });
+
+    // Close logic
+    overlay.querySelector('#close-overlay').onclick = () => overlay.remove();
+    
+    document.body.appendChild(overlay);
+  });
 }
