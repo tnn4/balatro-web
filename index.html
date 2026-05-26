@@ -11,8 +11,10 @@
 <link rel="stylesheet" href="css/card.css">
 <link rel="stylesheet" href="css/controls.css">
 <link rel="stylesheet" href="css/deckArea.css">
+<link rel="stylesheet" href="css/gameContainer.css">
 <link rel="stylesheet" href="css/handArea.css">
 <link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/moneyLabel.css">
 <link rel="stylesheet" href="css/overlay.css">
 <link rel="stylesheet" href="css/physicsToggle.css">
 <link rel="stylesheet" href="css/popup.css">
@@ -21,7 +23,11 @@
 
 </head>
 <body>
-<!--Deck selection overlay -->
+
+
+  <div id="game-container">
+
+    <!--Deck selection overlay -->
 <div id="deck-select-overlay" class="overlay">
     <h1>Select Deck</h1>
     <div id="deck-options-container" style="display:flex; gap:20px; flex-wrap:wrap; justify-content:center;">
@@ -35,6 +41,7 @@
   <div id="x-display" style="color: #ffffff; text-shadow: 2px 2px 0 #000;">X</div>
   <div id="mult-display" style="color: #ef4444; text-shadow: 2px 2px 0 #000;">Mult: 0</div>
 </div>
+  <div id="money-display" style="color: var(--gold); font-size: 0.8 rem; text-shadow: var(--shadow-hard);">$0</div>
   <div id="score-display">Score: 0</div>
   <div id="blind-status">Small Blind — Target: 100</div>
   <label style="font-size:0.38rem; color:#7aad90; cursor:pointer;">
@@ -89,6 +96,9 @@ DISCARD: <span id="discard-count">0</span>
   <button id="reset-btn">↺ Reset</button>
   <button id="adv-round-btn">Adv Round</button>
 </div>
+
+  </div>
+
 
 <script type="module" src="ui.js"></script>
 </body>

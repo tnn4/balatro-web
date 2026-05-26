@@ -66,7 +66,7 @@ export function render() {
   const pct = Math.min(100, Math.round((gameState.score / target) * 100));
   el('progress-bar-fill').style.width = pct + '%';
 
-
+  renderMoneyLabel();
   // Decks
   renderDeckScaling();
   renderDeckBack();
@@ -89,8 +89,9 @@ export function render() {
   // Game over
   if (gameState.handsLeft === 0 && gameState.score < gameState.blindTarget){
     console.log("GAME OVER");
+    // Get a random fail quote
     const randomFailQuote = failQuotes[Math.floor(Math.random() * failQuotes.length)]
-    setTimeout(() => showHeadline("Game Over", "game-over", ), 2);
+    setTimeout(() => showHeadline("Game Over", "game-over", ), 200);
     
   }
 }
@@ -529,6 +530,25 @@ function triggerJokerAnimation(jokerId, bonusText){
   ], {duration: 800}).onfinish = () => popup.remove();
 }
 
+// Resize Game 
+
+// ui.js
+function resizeGame() {
+  const container = document.getElementById('game-container');
+  if (!container) return;
+
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+  
+  // Calculate scale based on the smaller dimension to ensure it always fits
+  const scale = Math.min(winW / 1280, winH / 720);
+  
+  container.style.transform = `scale(${scale})`;
+}
+
+window.addEventListener('resize', resizeGame);
+resizeGame();
+
 // Deck rendering
 
 function renderDeckSelectionMenu() {
@@ -566,3 +586,15 @@ function renderDeckScaling() {
   deckEl.style.borderColor = remaining < 10 ? 'var(--red)' : '#000';
 }
 // --------------
+
+// Render money label
+function renderMoneyLabel(){
+  el('money-display').innerText = `$${G.$}`;
+}
+
+function updateMoney(newAmount){
+  const el = document.getElementById('money-display');
+  el.innerText = `$${newAmount}`;
+  el.classList.add('money-pulse');
+  setTimeout(() => el.classList.remove('money-pulse'), 200);
+}

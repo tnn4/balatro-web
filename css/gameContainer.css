@@ -1,0 +1,9 @@
+#game-container {
+  width: 1280px;      /* Fixed base width */
+  height: 720px;     /* Fixed base height */
+  transform-origin: top center;
+  position: absolute;
+  left: 50%;
+  margin-left: -640px; /* Half of width to center it */
+  overflow: hidden;    /* Prevents content from spilling */
+}
