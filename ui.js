@@ -19,6 +19,15 @@ import {
 import { calculateHandScore, getHandType } from './logic.js';
 import {failQuotes} from './quotes.js'
 
+export const DEBUG_MODE = true;
+
+function updateDebugButtons(){
+  const advBtn = el('adv-round-btn');
+  if(advBtn) {
+    advBtn.style.display = DEBUG_MODE ? 'block' : 'none';
+  }
+}
+
 const G = gameState;
 
 // ── Boot ─────────────────────────────────────────────────────
@@ -26,6 +35,8 @@ const G = gameState;
 console.log("Running ui.js");
 initGame();
 initRender();
+// our debug buttons for testing
+updateDebugButtons();
 render();
 
 // ── Core render — called after every state change ─────────────
@@ -47,6 +58,8 @@ export function render() {
   // Progress bar
   const pct = Math.min(100, Math.round((gameState.score / target) * 100));
   el('progress-bar-fill').style.width = pct + '%';
+
+  renderJokers();
 
   // Render hand
   renderHand();
@@ -118,11 +131,24 @@ function updateHandScore(score){
   // Ensure handlevels is an object , default to 1 if level not set
   const currentHandLevel = gameState.handLevels[handType.name] || 1;
 
-  const scoreData = calculateHandScore(handType.name, currentHandLevel, selected);
+  const scoreData = calculateHandScore(
+    handType.name, 
+    currentHandLevel, 
+    selected,
+    G.activeJokers,
+    (id, bonus) => triggerJokerAnimation(id,bonus)
+  );
 
   if (selected.length > 0){
     const handType = getHandType(selected);
-    const {totalChips, totalMult} = calculateHandScore(handType.name, gameState.handLevels[handType.name], selected)
+    // 2. Update the second call (the one used for the labels)
+    const {totalChips, totalMult} = calculateHandScore(
+      handType.name, 
+      gameState.handLevels[handType.name], 
+      selected,
+      G.activeJokers, // Pass jokers here too!
+      (id, bonus) => triggerJokerAnimation(id, bonus) // Pass your animation function
+  );
 
     // Update labels
     el('chips-display').innerText = `${scoreData.totalChips}`;
@@ -205,7 +231,10 @@ function handlePlayHand() {
 
   if (points !== false) {
     showPopup(`${result.name}!`, `+${points} pts`, '#4ade80');
-    checkBlindResult();
+    // checkBlindResult();
+    if (G.score >= G.blindTarget){
+      advanceRound();
+    }
   }
 
   render();
@@ -245,7 +274,7 @@ async function handleDiscard() {
 
     await flyCard.animate([
       { transform: 'scale(1) rotate(0deg)'},
-      {left: rect.left + 'px', top: rect.top + 'px,', transform: 'scale(0.2) rotate(360deg)'},
+      {left: rect.left + 'px', top: rect.top + 'px', transform: 'scale(0.2) rotate(360deg)'},
     ], { duration: 100, easing: 'ease-in-out'}).finished;
 
     flyCard.remove();
@@ -436,4 +465,49 @@ export function initRender() {
     
     document.body.appendChild(overlay);
   });
+}
+
+// Joker area
+function renderJokers() {
+  const container = el('joker-area');
+  container.innerHTML = ''; // clear current display
+
+  gameState.activeJokers.forEach((joker) =>{
+    const div = document.createElement('div');
+    div.className = 'joker-card';
+
+    div.dataset.jokerID = joker.id;
+
+    div.style.cssText = "width: 60px; height: 80px; background: #facc15; border: 2px solid #000; display: flex; align-items: center; justify-content: center; font-size: 0.3rem; text-align: center;";
+    div.innerText = joker.name;
+    container.appendChild(div);
+  });
+}
+
+function triggerJokerAnimation(jokerId, bonusText){
+  const jokerEl = document.querySelector(`[data-joker-id="${jokerId}"]`);
+  if (!jokerEl) return;
+
+  // Shake and scale
+  jokerEl.animate([
+    { transform: 'scale(1)' },
+    { transform: 'scale(1.2) rotate(-5deg)'},
+    { transform: 'scale(1.2) rotate(5deg)'},
+    { transform: 'scale(1)'}
+  ], {duration: 300});
+
+  // Spawn floating text
+  const popup = document.createElement('div');
+  popup.innerText = bonusText;
+  popup.style.cssText = "position:fixed; color:var(--gold); font-size: 0.5rem; z-index: 3000;";
+
+  const rect = jokerEl.getBoundingClientRect();
+  popup.style.left = rect.left + 'px';
+  popup.style.top = rect.top + 'px';
+  document.body.appendChild(popup);
+
+  popup.animate([
+    {opacity: 1, transform: 'translateY(0)'},
+    {opacity: 0, transform: 'translateY(-50px'}
+  ], {duration: 800}).onfinish = () => popup.remove();
 }

@@ -3,6 +3,7 @@
 // ============================================================
 
 import {SCORING_TABLE} from './game.js';
+import {JOKER_TYPES} from './jokers.js';
 import {failQuotes} from './quotes.js';
 
 /** Convert rank string → sortable number */
@@ -70,15 +71,33 @@ function checkStraight(sortedNums) {
   return false;
 }
 
-export function calculateHandScore(handName, level, cards) {
+export function calculateHandScore(handName, level, cards, activeJokers = [], onJokerTrigger = null) {
     const handData = SCORING_TABLE.find(h => h.name === handName) || { baseChips: 0, baseMult: 0 };
     
-    // Total Chips = Base Chips for hand + Sum of ranks
-    const chipValue = cards.reduce((sum, c) => sum + rankToNum(c.rank), 0);
-    const totalChips = handData.baseChips + chipValue;
-    
-    // Total Mult = Base Mult
-    const totalMult = handData.baseMult;
-    
-    return { totalChips, totalMult, finalScore: totalChips * totalMult };
+  // Initial state
+  let scoreData = {
+    totalChips: handData.baseChips + cards.reduce( (sum,c) => sum + rankToNum(c.rank),0),
+    totalMult: handData.baseMult
+  };
+
+  // 2. The Scalable Pipeline: Apply Jokers left-to-right
+  // activeJokers should be an array of objects: { name: string, apply: fn(scoreData) }
+  activeJokers.forEach( joker => {
+    const before = {chips: scoreData.totalChips, mult: scoreData.totalMult};
+
+    if (typeof joker.apply === 'function'){
+      joker.apply(scoreData);
+    }
+
+    // Notify the UI of the trigger
+    const bonus = (scoreData.totalChips > before.chips)
+      ? `${scoreData.totalChips - before.chips} Chips`
+      :`${scoreData.totalMult - before.mult} Mult`
+
+    if (onJokerTrigger) onJokerTrigger(joker.id, bonus);
+  });
+
+  scoreData.finalScore = scoreData.totalChips * scoreData.totalMult;
+
+  return scoreData;
 }

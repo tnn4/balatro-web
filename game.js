@@ -4,6 +4,7 @@
 
 import {getHandType} from './logic.js';
 import { calculateHandScore } from './logic.js';
+import {JOKER_TYPES} from './jokers.js';
 
 
 export const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
@@ -53,6 +54,9 @@ export function getScoreForLevel(handName, level) {
 
 // The single source of truth. Never mutate directly — use the functions below.
 export let gameState = {
+  // money
+  $: 0,
+  shopItems: [],
   currentRound: 0,
   score:        0,
   handsLeft:    4,
@@ -67,6 +71,8 @@ export let gameState = {
   discardPile: [],
   nextCardId:   0,
 };
+
+const G = gameState;
 
 // ── Deck ────────────────────────────────────────────────────
 
@@ -100,7 +106,7 @@ export function resetDeck(){
 export function resetRound(){
   console.log("Resetting round");
   const G = gameState;
-
+  G.score = 0;
   G.Deck = buildShuffledDeck();
   refillHand();
   console.log("[Reset round]: Current hand state:", G.hand);
@@ -134,6 +140,7 @@ function makeCard(state, { rank, suit }) {
 //    which is fine for a small game; no framework needed) ─────
 
 export function initGame() {
+  gameState.activeJokers = [JOKER_TYPES.MULT_2X];
   gameState.score        = 0;
   gameState.handsLeft    = 4;
   gameState.discardsLeft = 4;
@@ -200,7 +207,7 @@ export function playSelectedHand(handResult) {
   gameState.hand        = gameState.hand.filter(c => !c.selected);
 
   refillHand();
-  checkBlindProgress();
+  
   return scoreData.finalScore;
 }
 
@@ -209,6 +216,11 @@ export function discardSelected() {
   if (gameState.discardsLeft <= 0) return false;
   const selected = getSelected();
   if (selected.length === 0) return false;
+
+  // Move to state's discards pile 
+  selected.forEach(card => {
+    gameState.discardPile.push(card);
+  });
 
   gameState.hand           = gameState.hand.filter(c => !c.selected);
   gameState.discardsLeft  -= 1;
@@ -244,6 +256,7 @@ export function advanceRound() {
   }
   console.log(`[advanceRound] ante-level=${gameState.anteLevel}`)
   gameState.currentBlind = BLINDS[gameState.currentRound - 1];
+  G.blindMult = BLIND_MULT_LEVELS[G.currentRound-1];
   gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel-1];
   resetRound();
 }
