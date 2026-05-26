@@ -2,6 +2,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+    /* This ensures the font scales automatically as the screen gets smaller */
+    font-size: clamp(20px, 2.5vw, 32px);
+}
+
+:root {
   --green-felt:   #1b5e38;
   --felt-dark:    #143d27;
   --felt-light:   #236b43;
