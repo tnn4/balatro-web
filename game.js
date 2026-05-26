@@ -4,7 +4,8 @@
 
 import {getHandType} from './logic.js';
 import { calculateHandScore } from './logic.js';
-import {JOKER_TYPES} from './jokers.js';
+import {JOKER_TYPES} from './data/jokers.js';
+import {DECK_REGISTRY} from './data/decks.js'
 
 
 export const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
@@ -12,6 +13,9 @@ export const SUITS = ['♠','♥','♦','♣'];
 export const BLACK_SUITS = new Set(['♣','♠'])
 export const RED_SUITS = new Set(['♥','♦']);
 
+export const STARTING_$ = 5;
+export const BASE_HANDS = 5;
+export const BASE_DISCARDS = 3;
 export const ANTE_SCORE_TARGETS = [100,300,800,2000,5000,11000,20000,35000,50000]
 export const BLIND_SCORE_TARGETS = [100, 300, 500];
 export const BLINDS   = ['Small Blind', 'Big Blind', 'Boss Blind'];
@@ -59,8 +63,8 @@ export let gameState = {
   shopItems: [],
   currentRound: 0,
   score:        0,
-  handsLeft:    4,
-  discardsLeft: 4,
+  handsLeft:    BASE_HANDS,
+  discardsLeft: BASE_DISCARDS,
   anteLevel:    1,   // 1 | 2 | 3
   currentBlind: "Small Blind",
   blindMult: 1,
@@ -75,6 +79,19 @@ export let gameState = {
 const G = gameState;
 
 // ── Deck ────────────────────────────────────────────────────
+
+export function selectDeck(deckId) {
+  const deck = DECK_REGISTRY[deckId.toUpperCase()];
+  if (!deck) return;
+
+  // Apply bonuses
+  G.discardsLeft += deck.bonusDiscards || 0;
+  G.handsLeft += deck.bonusHands || 0;
+  G.dollars += deck.starting$ || 0;
+
+  G.activeDeck = deck;
+  document.getElementById('deck-select-overlay').style.display = 'none';
+}
 
 export function buildShuffledDeck() {
   const deck = [];
@@ -141,9 +158,10 @@ function makeCard(state, { rank, suit }) {
 
 export function initGame() {
   gameState.activeJokers = [JOKER_TYPES.MULT_2X];
+  gameState.$ = STARTING_$;
   gameState.score        = 0;
-  gameState.handsLeft    = 4;
-  gameState.discardsLeft = 4;
+  gameState.handsLeft    = BASE_HANDS;
+  gameState.discardsLeft = BASE_DISCARDS;
   gameState.currentBlind = BLINDS[0],
   gameState.blindMult = BLIND_MULT_LEVELS[0],
   gameState.handLevels =     [ 

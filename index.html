@@ -314,6 +314,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 </head>
 <body>
+<!--Deck selection overlay -->
+<div id="deck-select-overlay" class="overlay">
+    <h1>Select Deck</h1>
+    <div id="deck-options-container" style="display:flex; gap:20px; flex-wrap:wrap; justify-content:center;">
+        </div>
+</div>
 
 <!-- HUD bar -->
 <div id="hud">
@@ -359,6 +365,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 ">
 DISCARD: <span id="discard-count">0</span>
 </div>
+
 <!-- Sidebar preview -->
 <div id="sidebar">
   <div id="hand-validation-msg"></div>

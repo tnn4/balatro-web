@@ -3,8 +3,8 @@
 // ============================================================
 
 import {SCORING_TABLE} from './game.js';
-import {JOKER_TYPES} from './jokers.js';
-import {failQuotes} from './quotes.js';
+import {JOKER_TYPES} from './data/jokers.js';
+import {failQuotes} from './data/quotes.js';
 
 /** Convert rank string → sortable number */
 export function rankToNum(r) {

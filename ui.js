@@ -6,10 +6,14 @@
 import {
   gameState,
   initGame,
+
+  selectDeck,
+
   toggleCardSelected,
   getSelected,
   playSelectedHand,
   discardSelected,
+
   advanceRound,
   BLIND_SCORE_TARGETS,
   BLINDS,
@@ -17,7 +21,10 @@ import {
 } from './game.js';
 
 import { calculateHandScore, getHandType } from './logic.js';
-import {failQuotes} from './quotes.js'
+import {DECK_REGISTRY} from './data/decks.js';
+import {JOKER_TYPES} from './data/jokers.js'
+import {failQuotes} from './data/quotes.js'
+
 
 export const DEBUG_MODE = true;
 
@@ -59,6 +66,11 @@ export function render() {
   const pct = Math.min(100, Math.round((gameState.score / target) * 100));
   el('progress-bar-fill').style.width = pct + '%';
 
+
+  // Decks
+  renderDeckScaling();
+  renderDeckBack();
+  // Jokers
   renderJokers();
 
   // Render hand
@@ -436,6 +448,11 @@ export function updateScoringDisplay(chips, mult){
 }
 
 export function initRender() {
+
+  // Menu for choosing deck
+  renderDeckSelectionMenu();
+
+  // Discard pile
   el('discard-pile').addEventListener('click', () => {
     const pile = gameState.discardPile;
     if (pile.length === 0) return;
@@ -511,3 +528,41 @@ function triggerJokerAnimation(jokerId, bonusText){
     {opacity: 0, transform: 'translateY(-50px'}
   ], {duration: 800}).onfinish = () => popup.remove();
 }
+
+// Deck rendering
+
+function renderDeckSelectionMenu() {
+  const container = document.getElementById('deck-options-container');
+  container.innerHTML = '';
+
+  Object.values(DECK_REGISTRY).forEach(deck => {
+    const btn = document.createElement('button');
+    btn.innerText = deck.name;
+    btn.style.backgroundColor = deck.backColor;
+    // Bind the dynamic deck ID to selection function
+    btn.onclick = () => selectDeck(deck.id);
+    container.appendChild(btn);
+  })
+}
+
+function renderDeckBack() {
+  const deckArea = document.getElementById('deck-area');
+  if (G.activeDeck) {
+    deckArea.style.backgroundColor = gameState.activeDeck.backColor;
+  }
+}
+
+// Call inside render loop
+function renderDeckScaling() {
+  const deckEl = el('deck-area');
+  const remaining = G.deck.length;
+
+  const scale = 0.8 + (remaining/52) * 0.4;
+
+  deckEl.style.transform = `scale(${scale})`;
+  deckEl.style.transition = 'transform 0.3s ease';
+
+  // Visual juice: change color as it gets low
+  deckEl.style.borderColor = remaining < 10 ? 'var(--red)' : '#000';
+}
+// --------------
