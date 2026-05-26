@@ -1,0 +1,28 @@
+/* ── Sidebar info ─────────────────────────────────────────── */
+
+#sidebar {
+  position: fixed;
+  top: 80px; right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 200;
+}
+
+#hand-type-preview {
+  font-size: 0.55rem;
+  color: var(--gold);
+  text-shadow: var(--shadow-hard);
+  text-align: right;
+  max-width: 180px;
+}
+#hand-type-preview.preview-idle { color: #7aad90; }
+#hand-type-preview.preview-active { color: var(--gold); }
+
+#hand-validation-msg {
+  font-size: 0.45rem;
+  color: #ff6666;
+  text-align: right;
+  min-height: 1em;
+}

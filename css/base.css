@@ -1,0 +1,36 @@
+/* ── Reset & base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green-felt:   #1b5e38;
+  --felt-dark:    #143d27;
+  --felt-light:   #236b43;
+  --gold:         #f5c842;
+  --gold-dark:    #c99b1a;
+  --red:          #cc2200;
+  --card-bg:      #fdf6e3;
+  --card-border:  #222;
+  --pixel:        'Press Start 2P', monospace;
+  --shadow-hard:  4px 4px 0 #000;
+}
+
+body {
+  background: var(--green-felt);
+  /* pixel felt texture */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px,
+      transparent 1px, transparent 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px,
+      transparent 1px, transparent 4px
+    );
+  min-height: 100vh;
+  overflow: hidden;
+  font-family: var(--pixel);
+  color: #fff;
+  image-rendering: pixelated;
+}

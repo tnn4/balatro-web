@@ -1,0 +1,34 @@
+/* Progress bar */
+#progress-wrap {
+  position: fixed;
+  top: 64px; left: 0; right: 0;
+  height: 8px;
+  background: #0a2a18;
+  border-bottom: 2px solid #000;
+  z-index: 100;
+}
+#progress-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px rgba(245,200,66,0.6);
+}
+
+.centered-headline {
+  /* Positioning context */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  
+  /* Precision centering */
+  transform: translate(-50%, -50%);
+  
+  /* Text styling */
+  text-align: center;
+  width: 100%;
+  padding: 0 20px; /* Ensures text doesn't hit screen edges on small devices */
+  box-sizing: border-box;
+  
+  /* Optional: Prevents text from being selected while dragging/clicking */
+  user-select: none;
+}

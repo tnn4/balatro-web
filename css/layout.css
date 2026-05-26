@@ -1,0 +1,27 @@
+/* ── Layout ───────────────────────────────────────────────── */
+
+#hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 64px;
+  background: var(--felt-dark);
+  border-bottom: 3px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+#score-display {
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-shadow: var(--shadow-hard);
+  letter-spacing: 1px;
+}
+
+#blind-status {
+  font-size: 0.5rem;
+  color: #a8d5b5;
+  text-align: center;
+}

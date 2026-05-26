@@ -1,0 +1,53 @@
+/* ── Cards ────────────────────────────────────────────────── */
+
+.card {
+  position: relative;
+  width: 80px;
+  height: 120px;
+  background: var(--card-bg);
+  border: 3px solid var(--card-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-hard);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 4px 10px 0 #000;
+}
+
+.card.selected {
+  transform: translateY(-24px) !important;
+  box-shadow: 0 0 0 3px #4ade80, 4px 4px 0 #000 !important;
+  background: #f0ffe8;
+}
+
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-family: var(--pixel);
+}
+.card-corner.top-left    { top: 5px;  left: 5px; }
+.card-corner.bottom-right { bottom: 5px; right: 5px; transform: rotate(180deg); }
+
+.card-rank { font-size: 0.5rem; color: #111; font-weight: bold; }
+.card-suit { font-size: 0.55rem; }
+.card-suit.red { color: var(--red); }
+.card-suit.black {color: var(--black); }
+
+.card-center {
+  font-size: 2rem;
+  pointer-events: none;
+  line-height: 1;
+}
+.card-center.red { color: var(--red); }

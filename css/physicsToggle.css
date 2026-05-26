@@ -1,0 +1,11 @@
+/* ── Physics toggle ───────────────────────────────────────── */
+
+#mode-toggle-label {
+  position: fixed;
+  top: 74px; left: 12px;
+  font-size: 0.35rem;
+  color: #7aad90;
+  cursor: pointer;
+  z-index: 300;
+  display: none; /* hidden until sidebar shows deck */
+}

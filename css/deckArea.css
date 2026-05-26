@@ -1,0 +1,13 @@
+/* ── Deck counter ─────────────────────────────────────────── */
+
+#deck-area {
+  position: fixed;
+  top: 80px; left: 12px;
+  background: var(--felt-dark);
+  border: 3px solid #000;
+  box-shadow: var(--shadow-hard);
+  padding: 8px 12px;
+  font-size: 0.45rem;
+  color: #a8d5b5;
+  z-index: 200;
+}
