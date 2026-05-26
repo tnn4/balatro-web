@@ -3,7 +3,9 @@
 // ============================================================
 
 import {getHandType} from './logic.js';
-import { calculateHandScore } from './logic.js';
+import { 
+  calculateHandScore,
+  rankToNum } from './logic.js';
 import {JOKER_TYPES} from './data/jokers.js';
 import {DECK_REGISTRY} from './data/decks.js'
 
@@ -111,6 +113,7 @@ export function buildShuffledDeck() {
   return deck;
 }
 
+/* --- Reset Functions --- */
 export function resetDeck(){
   const G = gameState;
   // refill deck
@@ -130,6 +133,8 @@ export function resetRound(){
   G.handsLeft = 5;
   G.roundsLeft = 3;
 }
+
+/* ---------- */
 
 function makeRed(){
   // logic.js - Inside your card creation loop
@@ -179,6 +184,8 @@ export function initGame() {
   refillHand();
   console.log("Initialized Game");
 }
+
+/* --- Hand functions --- */
 
 /** Draw cards from deck until hand has HAND_SIZE cards. */
 export function refillHand() {
@@ -245,6 +252,40 @@ export function discardSelected() {
   refillHand();
   return true;
 }
+
+export function sortHandByRank() {
+  G.hand.sort((a,b) => rankToNum(a.rank) - rankToNum(b.rank));
+}
+
+export function sortHandBySuit() {
+  // Use a map that covers both the symbol and common full names
+  const suitOrder = { 
+    '♠': 0, 'S': 0, 'Spades': 0,
+    '♥': 1, 'H': 1, 'Hearts': 1,
+    '♦': 2, 'D': 2, 'Diamonds': 2,
+    '♣': 3, 'C': 3, 'Clubs': 3 
+  };
+
+  gameState.hand.sort((a, b) => {
+    console.log(`Comparing ${a.suit} and ${b.suit}`);
+    const suitA = suitOrder[a.suit] ?? 99; // Default to 99 if unknown
+    const suitB = suitOrder[b.suit] ?? 99;
+    
+    // Primary sort: Suit
+    if (suitA !== suitB) return suitA - suitB;
+    
+    // Secondary sort: Rank (so cards of the same suit are also ordered)
+    return rankToNum(a.rank) - rankToNum(b.rank);
+  });
+}
+
+export function sortHandBySuit2() {
+  const suitOrder = { '♠': 0, '♥': 1, '♦': 2, '♣': 3 };
+  gameState.hand.sort((a, b) => suitOrder[a.suit] - suitOrder[b.suit]);
+}
+
+
+/* --- Progress --- */
 
 /** Returns { cleared: bool, won: bool } */
 export function checkBlindProgress() {

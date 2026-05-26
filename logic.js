@@ -101,3 +101,17 @@ export function calculateHandScore(handName, level, cards, activeJokers = [], on
 
   return scoreData;
 }
+
+export function formatScore(num) {
+    // Convert BigInt to Number for formatting
+    const val = Number(num);
+    
+    if (val < 1_000_000) return val.toString(); // Keep small numbers exact
+    
+    // Use standard Intl.NumberFormat for clean "scientific" or "compact" notation
+    return new Intl.NumberFormat('en-US', {
+        notation: "compact",
+        compactDisplay: "short",
+        maximumFractionDigits: 2
+    }).format(val);
+}

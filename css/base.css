@@ -1,6 +1,10 @@
 /* ── Reset & base ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+body, h1, button, span {
+    image-rendering: pixelated;
+}
+
 :root {
     /* This ensures the font scales automatically as the screen gets smaller */
     font-size: clamp(20px, 2.5vw, 32px);

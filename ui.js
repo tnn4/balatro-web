@@ -13,6 +13,9 @@ import {
   getSelected,
   playSelectedHand,
   discardSelected,
+  sortHandByRank,
+  sortHandBySuit,
+  
 
   advanceRound,
   BLIND_SCORE_TARGETS,
@@ -20,7 +23,10 @@ import {
   RED_SUITS,
 } from './game.js';
 
-import { calculateHandScore, getHandType } from './logic.js';
+import { 
+  calculateHandScore, 
+  getHandType, 
+  formatScore } from './logic.js';
 import {DECK_REGISTRY} from './data/decks.js';
 import {JOKER_TYPES} from './data/jokers.js'
 import {failQuotes} from './data/quotes.js'
@@ -40,6 +46,10 @@ const G = gameState;
 // ── Boot ─────────────────────────────────────────────────────
 // This should be only run once
 console.log("Running ui.js");
+
+
+
+init()
 initGame();
 initRender();
 // our debug buttons for testing
@@ -50,7 +60,7 @@ render();
 
 export function render() {
   // Scores & counters
-  el('score-display').innerText    = `Score: ${gameState.score}`;
+  el('score-display').innerText = `Score: ${formatScore(gameState.score)}`;;
   el('play-btn').innerText         = `▶ Play Hand  (${gameState.handsLeft} left)`;
   el('discard-btn').innerText      = `✕ Discard  (${gameState.discardsLeft} left)`;
   el('deck-count').innerText       = gameState.deck.length;
@@ -562,6 +572,7 @@ function renderDeckSelectionMenu() {
     // Bind the dynamic deck ID to selection function
     btn.onclick = () => selectDeck(deck.id);
     container.appendChild(btn);
+    render();
   })
 }
 
@@ -597,4 +608,29 @@ function updateMoney(newAmount){
   el.innerText = `$${newAmount}`;
   el.classList.add('money-pulse');
   setTimeout(() => el.classList.remove('money-pulse'), 200);
+}
+
+function initSortButtons() {
+  const container = document.getElementById('sort-controls');
+
+  const rankBtn = document.createElement('button');
+  rankBtn.innerText = 'Sort: Rank';
+  rankBtn.onclick = () => {
+    sortHandByRank();
+    render();
+  }
+
+  const suitBtn = document.createElement('button');
+  suitBtn.innerText = 'Sort: Suit';
+  suitBtn.onclick = () => {
+    sortHandBySuit();
+    render();
+  }
+
+  container.appendChild(rankBtn);
+  container.appendChild(suitBtn);
+}
+
+function init(){
+  initSortButtons();
 }
