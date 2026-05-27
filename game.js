@@ -114,24 +114,26 @@ export function buildShuffledDeck() {
 }
 
 /* --- Reset Functions --- */
-export function resetDeck(){
-  const G = gameState;
-  // refill deck
-  G.deck =  buildShuffledDeck();
-  // reset hand
-  G.hand = [];
-  G.hand = refillHandFromDeck(G.Deck);
-}
+
 
 export function resetRound(){
   console.log("Resetting round");
   const G = gameState;
   G.score = 0;
-  G.Deck = buildShuffledDeck();
+  resetDiscardPile();
+  resetDeck();
   refillHand();
   console.log("[Reset round]: Current hand state:", G.hand);
   G.handsLeft = 5;
   G.roundsLeft = 3;
+}
+
+export function resetDeck(){
+  G.deck = buildShuffledDeck();
+}
+
+export function resetDiscardPile(){
+  G.discardPile = [];
 }
 
 /* ---------- */
@@ -287,35 +289,42 @@ export function sortHandBySuit2() {
 
 /* --- Progress --- */
 
-/** Returns { cleared: bool, won: bool } */
-export function checkBlindProgress() {
-  const target = BLIND_SCORE_TARGETS[gameState.anteLevel - 1];
-  if (gameState.score < target) return { cleared: false, won: false };
-
-  
-  gameState.currentRound++;
-
-  // advance the ante once past round 3
-  if (gameState.currentRound % 3 === 0 & gameState.currentRound !== 0 ){
-    gameState.anteLevel++;
-    gameState.currentRound = 1;
-  }
-  
-  resetRound();
-  return { cleared: true, won: false };
-}
 
 export function advanceRound() {
   gameState.currentRound++;
     // advance the ante once past round 3 / Boss Blind
   if (gameState.currentRound % 3 === 1 & gameState.currentRound !== 0 ){
     gameState.anteLevel++;
-    
     gameState.currentRound = 1;
   }
   console.log(`[advanceRound] ante-level=${gameState.anteLevel}`)
   gameState.currentBlind = BLINDS[gameState.currentRound - 1];
   G.blindMult = BLIND_MULT_LEVELS[G.currentRound-1];
-  gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel-1];
+  gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel-1] * G.blindMult;
   resetRound();
+  saveGame();
 }
+
+/* --- Save Game --- */
+
+export function saveGame() {
+  const saveState = JSON.stringify(G);
+  localStorage.setItem('balatro_save', saveState);
+  console.log("Game Saved.");
+}
+
+export function deleteSave() {
+    localStorage.removeItem('balatro_save');
+    console.log("Save file deleted.");
+}
+
+export function loadGame() {
+  const saved = localStorage.getItem('balatro_save');
+  if (saved){
+    Object.assign(gameState, JSON.parse(saved));
+    console.log("Game loaded");
+  } else {
+    console.log("No save found.")
+  }
+}
+
