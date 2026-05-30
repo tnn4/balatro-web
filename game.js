@@ -27,20 +27,21 @@ export const BLIND_TYPES = [{name: "Small", mult: 1}, {name: "Big", mult: 1.5}, 
 export const HAND_SIZE     = 7;
 
 // Each object represents a row in your scoring chart
-export const SCORING_TABLE = [
-  { name: 'High Card',       baseChips: 5,  baseMult: 1 },
-  { name: 'Pair',            baseChips: 10, baseMult: 2 },
-  { name: 'Two Pair',        baseChips: 20, baseMult: 2 },
-  { name: 'Three of a Kind', baseChips: 30, baseMult: 3 },
-  { name: 'Straight',        baseChips: 30, baseMult: 4 },
-  { name: 'Flush',           baseChips: 35, baseMult: 4 },
-  { name: 'Full House',      baseChips: 40, baseMult: 4 },
-  { name: 'Four of a Kind',  baseChips: 60, baseMult: 7 },
-  { name: 'Straight Flush',  baseChips: 100, baseMult: 8 },
-  { name: 'Five of a Kind',  baseChips: 120, baseMult: 12 },
-  { name: 'Flush House',     baseChips: 140, baseMult: 14 },
-  { name: 'Flush Five',      baseChips: 160, baseMult: 16 }
-];
+export const SCORING_TABLE = {
+  'High Card': {baseChips: 5,  baseMult: 1} ,
+  'Pair':            {baseChips: 10, baseMult: 2} ,
+  'Two Pair':        {baseChips: 20, baseMult: 2} ,
+  'Three of a Kind': {baseChips: 30, baseMult: 3} ,
+  'Straight':        {baseChips: 30, baseMult: 4} ,
+  'Flush':           {baseChips: 35, baseMult: 4} ,
+  'Full House':      {baseChips: 40, baseMult: 4} ,
+  'Four of a Kind':  {baseChips: 60, baseMult: 7} ,
+  'Straight Flush':  {baseChips: 100, baseMult: 8} ,
+  'Five of a Kind':  {baseChips: 120, baseMult: 12} ,
+  'Flush House':     {baseChips: 140, baseMult: 14} ,
+  'Flush Five':      {baseChips: 160, baseMult: 16} 
+}
+;
 
 /**
  * Calculates score for a hand level (1-15).
@@ -67,10 +68,15 @@ export let gameState = {
   score:        0,
   handsLeft:    BASE_HANDS,
   discardsLeft: BASE_DISCARDS,
-  anteLevel:    1,   // 1 | 2 | 3
+  anteLevel:    1,
   currentBlind: "Small Blind",
   blindMult: 1,
   blindTarget: 100,
+  player: {
+    name: "Player 1",
+    handLevels: {},
+    currentChips: 0,
+    currentMult: 0},
   handLevels: [],
   deck:         [],
   hand:         [],  // array of { rank, suit, id } objects
@@ -166,18 +172,28 @@ function makeCard(state, { rank, suit }) {
 export function initGame() {
   gameState.activeJokers = [JOKER_TYPES.MULT_2X];
   gameState.$ = STARTING_$;
-  gameState.score        = 0;
   gameState.handsLeft    = BASE_HANDS;
   gameState.discardsLeft = BASE_DISCARDS;
   gameState.currentBlind = BLINDS[0],
-  gameState.blindMult = BLIND_MULT_LEVELS[0],
-  gameState.handLevels =     [ 
-      {"High Card": 1},{"Pair": 1},{"Two Pair": 1},
-      {"Three of a Kind":1},{"Straight": 1},{"Flush": 1},
-      {"Full House":1},{"Four of a Kind": 1},{"Straight Flush": 1}
-    ]
+  gameState.blindMult    = BLIND_MULT_LEVELS[0],
+  G.player.handLevels = structuredClone(SCORING_TABLE);
+  gameState.handLevels =    {
+      "High Card": {level: 1, currentChips: SCORING_TABLE['High Card'].baseChips, currentMult: SCORING_TABLE['High Card'].baseMult },
+      "Pair": { level: 1, currentChips: SCORING_TABLE['Pair'].baseChips, currentMult: SCORING_TABLE['Pair'].baseMult },
+      "Two Pair": { level: 1, currentChips: SCORING_TABLE['Two Pair'].baseChips, currentMult: SCORING_TABLE['Two Pair'].baseMult },
+      "Three of a Kind": { level: 1, currentChips: SCORING_TABLE['Three of a Kind'].baseChips, currentMult: SCORING_TABLE['Three of a Kind'].baseMult },
+      "Straight": { level: 1, currentChips: SCORING_TABLE['Straight'].baseChips, currentMult: SCORING_TABLE['Straight'].baseMult },
+      "Flush": { level: 1, currentChips: SCORING_TABLE['Flush'].baseChips, currentMult: SCORING_TABLE['Flush'].baseMult },
+      "Full House": { level: 1, currentChips: SCORING_TABLE['Full House'].baseChips, currentMult: SCORING_TABLE['Full House'].baseMult },
+      "Four of a Kind": { level: 1, currentChips: SCORING_TABLE['Four of a Kind'].baseChips, currentMult: SCORING_TABLE['Four of a Kind'].baseMult },
+      "Straight Flush": { level: 1, currentChips: SCORING_TABLE['Straight Flush'].baseChips, currentMult: SCORING_TABLE['Straight Flush'].baseMult }
+  },
+  G.score = {
+    currentChips: 0,
+    currentMult: 0,
+    totalScore: 0,
+  }
   gameState.currentRound = 1;
-  
   gameState.anteLevel    = 1;
   gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel] * gameState.blindMult;
   gameState.nextCardId   = 0;
@@ -185,6 +201,25 @@ export function initGame() {
   gameState.hand         = [];
   refillHand();
   console.log("Initialized Game");
+}
+
+/* --- Poker Hand level functions --- */
+/**
+ * 
+ * @param {*} handType : string name of hand type, e.g. "Pair", "Straight", etc.
+ * @param {*} upgradeLevels : how many levels to upgrade (default 1)
+ */
+export function upgradePokerHand(handType, upgradeLevels=1){
+  const hand = gameState.handLevels.find(h => h.name === handType);
+  if (!hand) return;
+
+  hand.level += 1;
+  for(let i=0; i < upgradeLevels; i++){
+    hand.currentChips += 40; // Example: increase chips by 40 per level
+    hand.currentMult += 2;   // Example: increase mult by 2 per level
+  }
+  const scoreData = getScoreForLevel(handType, hand.level);
+
 }
 
 /* --- Hand functions --- */
@@ -212,11 +247,13 @@ export function toggleCardSelected(cardId) {
 }
 
 /** Returns selected cards array. */
-export function getSelected() {
+export function getSelectedCards() {
   return gameState.hand.filter(c => c.selected);
 }
 
-/** Remove selected cards from hand, decrement handsLeft, add score, refill. */
+/** Play selected hand
+ * 
+ * Remove selected cards from hand, decrement handsLeft, add score, refill. */
 export function playSelectedHand(handResult) {
   if (gameState.handsLeft <= 0) return false;
   const selected = getSelected();
@@ -238,7 +275,9 @@ export function playSelectedHand(handResult) {
   return scoreData.finalScore;
 }
 
-/** Remove selected cards from hand, decrement discardsLeft, refill. */
+/** Discard hand
+ * 
+ * Remove selected cards from hand, decrement discardsLeft, refill. */
 export function discardSelected() {
   if (gameState.discardsLeft <= 0) return false;
   const selected = getSelected();
@@ -297,7 +336,7 @@ export function advanceRound() {
     gameState.anteLevel++;
     gameState.currentRound = 1;
   }
-  console.log(`[advanceRound] ante-level=${gameState.anteLevel}`)
+  console.log(`[advanceRound] ante-level=${G.anteLevel}`)
   gameState.currentBlind = BLINDS[gameState.currentRound - 1];
   G.blindMult = BLIND_MULT_LEVELS[G.currentRound-1];
   gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel-1] * G.blindMult;

@@ -10,12 +10,15 @@ import {
   selectDeck,
 
   toggleCardSelected,
-  getSelected,
+  getSelectedCards,
   playSelectedHand,
   discardSelected,
   sortHandByRank,
   sortHandBySuit,
   
+  saveGame,
+  deleteSave,
+  loadGame,
 
   advanceRound,
   BLIND_SCORE_TARGETS,
@@ -61,8 +64,8 @@ render();
 export function render() {
   // Scores & counters
   el('score-display').innerText = `Score: ${formatScore(gameState.score)}`;;
-  el('play-btn').innerText         = `▶ Play Hand  (${gameState.handsLeft} left)`;
-  el('discard-btn').innerText      = `✕ Discard  (${gameState.discardsLeft} left)`;
+  el('play-btn').innerText         = `▶ Play (${gameState.handsLeft})`;
+  el('discard-btn').innerText      = `✕ Discard (${gameState.discardsLeft})`;
   el('deck-count').innerText       = gameState.deck.length;
   el('discard-pile').innerText = `DISCARD: ${gameState.discardPile.length}`;
   // Blind info
@@ -133,58 +136,39 @@ function renderSuitColors(){
 }
 
 // -- Render Score --
-function updateHandScore(score){
-  console.log('Updating hand score');
+function updateHandScore() {
+  const selected = getSelectedCards();
 
-  const bankedScore = gameState.score;
-  let handScore = 0;
-
-  const selected = getSelected();
-
-  if (selected.length === 0){
+  // 1. Guard Clause: Reset UI if no cards
+  if (selected.length === 0) {
     el('chips-display').innerText = '0';
     el('mult-display').innerText = '0';
     el('hand-type-preview').innerText = 'Select cards...';
+    el('score-display').innerText = `Score: ${gameState.score.totalScore}`;
     return;
   }
 
-
+  // 2. Identify Hand
   const handType = getHandType(selected);
+  // Now this direct lookup works perfectly because handLevels is an object
+  const levelData = gameState.handLevels[handType.name] || { level: 1 };
 
-  // Ensure handlevels is an object , default to 1 if level not set
-  const currentHandLevel = gameState.handLevels[handType.name] || 1;
-
+  // 3. Single Calculation (Performance optimization)
   const scoreData = calculateHandScore(
-    handType.name, 
-    currentHandLevel, 
+    handType.name,
+    levelData.level,
     selected,
     G.activeJokers,
-    (id, bonus) => triggerJokerAnimation(id,bonus)
+    (id, bonus) => triggerJokerAnimation(id, bonus)
   );
 
-  if (selected.length > 0){
-    const handType = getHandType(selected);
-    // 2. Update the second call (the one used for the labels)
-    const {totalChips, totalMult} = calculateHandScore(
-      handType.name, 
-      gameState.handLevels[handType.name], 
-      selected,
-      G.activeJokers, // Pass jokers here too!
-      (id, bonus) => triggerJokerAnimation(id, bonus) // Pass your animation function
-  );
-
-    // Update labels
-    el('chips-display').innerText = `${scoreData.totalChips}`;
-    el(`mult-display`).innerText = `${scoreData.totalMult}`;
-    el('hand-type-preview').innerText = handType.name;
-    el('score-display').innerText = `Score: ${scoreData.finalScore}`;
-  }
-
-  if (handScore > 0){
-    el('score-display').innerText = `Score: ${bankedScore} + ${handScored}`;
-  } else {
-    el('score-display').innerText = `Score: ${bankedScore}`;
-  }
+  // 4. Update UI
+  el('chips-display').innerText = `${scoreData.totalChips}`;
+  el('mult-display').innerText = `${scoreData.totalMult}`;
+  el('hand-type-preview').innerText = handType.name;
+  
+  // Assuming scoreData.finalScore is the result of Chips * Mult
+  el('score-display').innerText = `Score: ${gameState.score.totalScore} + ${scoreData.finalScore}`;
 }
 
 function buildCardEl(cardData) {
@@ -208,7 +192,7 @@ function buildCardEl(cardData) {
   `;
 
   div.addEventListener('click', () => {
-    const selected = getSelected();
+    const selected = getSelectedCards();
     // If clicking an unselected card and already at 5, block
     if (!cardData.selected && selected.length >= 5) {
       flashWarning('Max 5 cards!');
@@ -224,7 +208,7 @@ function buildCardEl(cardData) {
 // ── Preview label ─────────────────────────────────────────────
 
 function updatePreview() {
-  const selected = getSelected();
+  const selected = getSelectedCards();
   const preview  = el('hand-type-preview');
   const warning  = el('hand-validation-msg');
 
@@ -244,7 +228,7 @@ function updatePreview() {
 // ── Actions ───────────────────────────────────────────────────
 
 function handlePlayHand() {
-  const selected = getSelected();
+  const selected = getSelectedCards();
   if (selected.length === 0)  { flashWarning('Select cards first!'); return; }
   if (selected.length > 5)    { flashWarning('Max 5 cards!');        return; }
   if (gameState.handsLeft <= 0) return;
@@ -264,7 +248,7 @@ function handlePlayHand() {
 }
 
 async function handleDiscard() {
-  const selected = getSelected();
+  const selected = getSelectedCards();
   if (selected.length === 0){
     flashWarning('Select cards first!');
   }
@@ -631,6 +615,118 @@ function initSortButtons() {
   container.appendChild(suitBtn);
 }
 
+function initSaveButtons(){
+  const container = document.getElementById('controls');
+
+  const saveBtn = document.createElement('button');
+  saveBtn.innerText = '💾 Save';
+  saveBtn.onclick = () => {
+    saveGame();
+    showPopup('Game Saved', 'Progress stored!', '#60a5fa');
+  };
+
+  const loadBtn = document.createElement('button');
+    loadBtn.innerText = '📂 Load';
+    loadBtn.onclick = () => {
+        loadGame();
+        render(); // Refresh the UI with loaded data
+        showPopup('Game Loaded', 'Resuming run...', '#4ade80');
+    };
+
+  container.appendChild(saveBtn);
+  container.appendChild(loadBtn);
+}
+
+// 1. Menu Toggle Logic
+function initSystemMenu() {
+    const overlay = el('system-overlay');
+    
+    // Poker hand levels menu
+    const handLevelsBtn = document.createElement('button');
+    handLevelsBtn.innerText = 'View Hand Levels';
+    handLevelsBtn.onclick = showPokerHandLevelOverlay;
+
+    // Appnd to system-overlay container
+    document.getElementById('system-overlay').appendChild(handLevelsBtn);
+    
+    // Toggle visibility
+    el('open-system-btn').onclick = () => overlay.style.display = 'flex';
+    el('close-system-menu').onclick = () => overlay.style.display = 'none';
+
+    // Button Actions
+    el('save-btn-menu').onclick = () => {
+        saveGame();
+        showPopup('Saved!', 'Game state stored', '#60a5fa');
+    };
+
+    el('load-btn-menu').onclick = () => {
+        loadGame();
+        render();
+        showPopup('Loaded!', 'Save reloaded', '#4ade80');
+    };
+
+    el('delete-btn-menu').onclick = () => {
+        if (confirm("Are you sure you want to delete your progress?")) {
+            deleteSave();
+            showPopup('Deleted', 'Fresh start ready', '#cc2200');
+        }
+    };
+}
+
+
+// Parallax tilt effect
+// Calculate how far mouse is from center of card
+// e.g. mouse to the right -> rotate Y-axis
+// e.g. mouse towards bottom -> rotate X-axis
+
+function initCardTiltEffect() {
+  const cards = document.querySelectorAll('.card');
+
+  cards.forEach((card) => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const cardX = e.clientX - rect.left; // mouse x relative to card
+      const cardY = e.clientY - rect.top; // mouse y relative to card
+
+      // Calculate rotation (-15 to 15)
+      const rotateY = ((x / rect.width) - 0.5) * 30;
+      const rotateX = (( y / rect.height) - 0.5) * -30;
+      
+      card.style.transform = `perspective(1000px) rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+    });
+
+      // Reset on mouse leave
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = `perspective(1000px) rotateY(0deg) rotateX(0deg)`;
+    });
+  });
+
+
+}
+
+// 1. Create the level display overlay
+function showPokerHandLevelOverlay() {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  // Build the list of hand levels
+  let html = `<h2>Hand Levels</ht><ul style="list-style: none; margin: 20px 0;">`;
+  for (const [handName, level] of Object.entries[G.handLevels]){
+    html += `<li style="padding: 5px;">${handName}: <strong>Level ${level}</strong></lis>`;
+
+  }
+  html += `</ul><button id="close-poker-hand-levels-overlay">Close</button>`;
+  
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#close-poker-hand-levels-overlay').onclick = () => overlay.remove();
+}
+
 function init(){
+
+  initCardTiltEffect();
+
   initSortButtons();
+  initSaveButtons();
+  initSystemMenu();
 }

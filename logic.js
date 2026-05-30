@@ -51,7 +51,7 @@ export function getHandType(cards) {
   if (pairCount >= 2) handName = 'Two Pair';
   if (pairCount === 1) handName = 'Pair';
 
-  const tableEntry = SCORING_TABLE.find(h => h.name === handName);
+  const tableEntry = SCORING_TABLE[handName];
 
   return{
     name: handName,
@@ -72,7 +72,7 @@ function checkStraight(sortedNums) {
 }
 
 export function calculateHandScore(handName, level, cards, activeJokers = [], onJokerTrigger = null) {
-    const handData = SCORING_TABLE.find(h => h.name === handName) || { baseChips: 0, baseMult: 0 };
+    const handData = SCORING_TABLE[handName] || { baseChips: 0, baseMult: 0 };
     
   // Initial state
   let scoreData = {

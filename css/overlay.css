@@ -18,3 +18,9 @@
   justify-content: center;
   max-width: 80%;
 }
+
+.overlay ul {
+    color: #fff;
+    font-family: 'Courier New', monospace; /* Matches the "Bunker" vibe */
+    text-align: center;
+}
