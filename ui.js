@@ -21,7 +21,7 @@ import {
   loadGame,
 
   advanceRound,
-  BLIND_SCORE_TARGETS,
+  ANTE_SCORE_TARGETS,
   BLINDS,
   RED_SUITS,
 } from './game.js';
@@ -63,13 +63,13 @@ render();
 
 export function render() {
   // Scores & counters
-  el('score-display').innerText = `Score: ${formatScore(gameState.score)}`;;
+  el('score-display').innerText = `Score: ${formatScore(G.score.totalScore)}`;;
   el('play-btn').innerText         = `▶ Play (${gameState.handsLeft})`;
   el('discard-btn').innerText      = `✕ Discard (${gameState.discardsLeft})`;
   el('deck-count').innerText       = gameState.deck.length;
   el('discard-pile').innerText = `DISCARD: ${gameState.discardPile.length}`;
   // Blind info
-  const target = BLIND_SCORE_TARGETS[gameState.anteLevel - 1];
+  const target = ANTE_SCORE_TARGETS[gameState.anteLevel - 1];
   console.log(`Current ante level: ${gameState.anteLevel}`)
   const name   = BLINDS[gameState.anteLevel - 1];
   const currentRound = G.currentRound;
@@ -155,8 +155,8 @@ function updateHandScore() {
 
   // 3. Single Calculation (Performance optimization)
   const scoreData = calculateHandScore(
+    G,
     handType.name,
-    levelData.level,
     selected,
     G.activeJokers,
     (id, bonus) => triggerJokerAnimation(id, bonus)
@@ -239,7 +239,7 @@ function handlePlayHand() {
   if (points !== false) {
     showPopup(`${result.name}!`, `+${points} pts`, '#4ade80');
     // checkBlindResult();
-    if (G.score >= G.blindTarget){
+    if (G.score.totalScore >= G.blindTarget){
       advanceRound();
     }
   }

@@ -19,7 +19,6 @@ export const STARTING_$ = 5;
 export const BASE_HANDS = 5;
 export const BASE_DISCARDS = 3;
 export const ANTE_SCORE_TARGETS = [100,300,800,2000,5000,11000,20000,35000,50000]
-export const BLIND_SCORE_TARGETS = [100, 300, 500];
 export const BLINDS   = ['Small Blind', 'Big Blind', 'Boss Blind'];
 export const BLIND_MULT_LEVELS = [1, 1.5, 2]
 export const BLIND_TYPES = [{name: "Small", mult: 1}, {name: "Big", mult: 1.5}, {name: "Boss", mult: 2}]
@@ -125,10 +124,11 @@ export function buildShuffledDeck() {
 export function resetRound(){
   console.log("Resetting round");
   const G = gameState;
-  G.score = 0;
+  G.score.totalScore = 0;
   resetDiscardPile();
   resetDeck();
   refillHand();
+  sortHandByRank();
   console.log("[Reset round]: Current hand state:", G.hand);
   G.handsLeft = 5;
   G.roundsLeft = 3;
@@ -176,6 +176,7 @@ export function initGame() {
   gameState.discardsLeft = BASE_DISCARDS;
   gameState.currentBlind = BLINDS[0],
   gameState.blindMult    = BLIND_MULT_LEVELS[0],
+  G.blindTarget = 300,
   G.player.handLevels = structuredClone(SCORING_TABLE);
   gameState.handLevels =    {
       "High Card": {level: 1, currentChips: SCORING_TABLE['High Card'].baseChips, currentMult: SCORING_TABLE['High Card'].baseMult },
@@ -200,6 +201,7 @@ export function initGame() {
   gameState.deck         = buildShuffledDeck();
   gameState.hand         = [];
   refillHand();
+  sortHandByRank();
   console.log("Initialized Game");
 }
 
@@ -256,22 +258,23 @@ export function getSelectedCards() {
  * Remove selected cards from hand, decrement handsLeft, add score, refill. */
 export function playSelectedHand(handResult) {
   if (gameState.handsLeft <= 0) return false;
-  const selected = getSelected();
+  const selected = getSelectedCards();
   if (selected.length === 0 || selected.length > 5) return false;
 
   // 1. Get hand type
   handResult = getHandType(selected);
 
   // 2. Calculate Chipx x Mult using logic.js helper
-  const scoreData = calculateHandScore(handResult.name, gameState.anteLevel, selected);
+  const scoreData = calculateHandScore(G, handResult.name, selected);
 
 
-  gameState.score      += scoreData.finalScore;
+  G.score.totalScore      += scoreData.totalChips * scoreData.totalMult;
   gameState.handsLeft  -= 1;
   gameState.hand        = gameState.hand.filter(c => !c.selected);
 
   refillHand();
-  
+  sortHandByRank();
+
   return scoreData.finalScore;
 }
 
@@ -280,7 +283,7 @@ export function playSelectedHand(handResult) {
  * Remove selected cards from hand, decrement discardsLeft, refill. */
 export function discardSelected() {
   if (gameState.discardsLeft <= 0) return false;
-  const selected = getSelected();
+  const selected = getSelectedCards();
   if (selected.length === 0) return false;
 
   // Move to state's discards pile 
@@ -291,6 +294,7 @@ export function discardSelected() {
   gameState.hand           = gameState.hand.filter(c => !c.selected);
   gameState.discardsLeft  -= 1;
   refillHand();
+  sortHandByRank();
   return true;
 }
 
@@ -331,15 +335,30 @@ export function sortHandBySuit2() {
 
 export function advanceRound() {
   gameState.currentRound++;
+
     // advance the ante once past round 3 / Boss Blind
+    /*
   if (gameState.currentRound % 3 === 1 & gameState.currentRound !== 0 ){
     gameState.anteLevel++;
     gameState.currentRound = 1;
   }
-  console.log(`[advanceRound] ante-level=${G.anteLevel}`)
-  gameState.currentBlind = BLINDS[gameState.currentRound - 1];
-  G.blindMult = BLIND_MULT_LEVELS[G.currentRound-1];
-  gameState.blindTarget = ANTE_SCORE_TARGETS[gameState.anteLevel-1] * G.blindMult;
+ */
+  // Advance ante every 3 rounds
+  if (G.currentRound > 3) {
+    gameState.anteLevel++;
+    gameState.currentRound = 1;
+  }
+
+  // Uniform state access
+  const roundIdx = G.currentRound - 1;
+  G.currentBlind = BLINDS[roundIdx];
+  G.blindMult = BLIND_MULT_LEVELS[roundIdx];
+
+  let targetBase = ANTE_SCORE_TARGETS[G.anteLevel - 1] * G.blindMult;
+  gameState.blindTarget = targetBase * gameState.blindMult;
+  
+  console.log(`Round: ${gameState.currentRound}, Ante: ${gameState.anteLevel}, Target: ${gameState.blindTarget}`);
+
   resetRound();
   saveGame();
 }

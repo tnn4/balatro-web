@@ -71,8 +71,49 @@ function checkStraight(sortedNums) {
   return false;
 }
 
-export function calculateHandScore(handName, level, cards, activeJokers = [], onJokerTrigger = null) {
-    const handData = SCORING_TABLE[handName] || { baseChips: 0, baseMult: 0 };
+export function calculateHandScore(G, handName, cards, activeJokers = [], onJokerTrigger = null) {
+  // 1. Get Base Values (Level + Cards)
+  console.log(`BUG: handName = ${handName}`)
+  const handData = G.handLevels[handName] || { currentChips: 0, currentMult: 0 };
+  
+  // Calculate card-specific chip values (e.g., Ace=11, Face=10, others=rank)
+  const cardChips = cards.reduce((sum, c) => sum + rankToNum(c.rank), 0);
+  
+  // The "Frozen" state before Jokers intervene
+  let scoreData = {
+    totalChips: handData.currentChips + cardChips,
+    totalMult: handData.currentMult
+  };
+
+  // 2. The Modifier Pipeline
+  activeJokers.forEach(joker => {
+    // Keep a snapshot to detect what changed
+    const snapshot = { ...scoreData };
+
+    if (typeof joker.apply === 'function') {
+      joker.apply(scoreData);
+    }
+
+    // 3. Robust Trigger Notification
+    if (onJokerTrigger) {
+      const chipDiff = scoreData.totalChips - snapshot.totalChips;
+      const multDiff = scoreData.totalMult - snapshot.totalMult;
+      
+      if (chipDiff !== 0 || multDiff !== 0) {
+        const message = chipDiff !== 0 ? `+${chipDiff} Chips` : `+${multDiff} Mult`;
+        onJokerTrigger(joker.id, message);
+      }
+    }
+  });
+
+  // Final multiplication
+  scoreData.finalScore = scoreData.totalChips * scoreData.totalMult;
+  return scoreData;
+}
+
+// score should be calculated on current player's hand
+export function calculateHandScoreDep(G, handName, cards, activeJokers = [], onJokerTrigger = null) {
+  const handData = G.handLevels[handName] || { baseChips: 0, baseMult: 0 };
     
   // Initial state
   let scoreData = {
