@@ -1,6 +1,7 @@
 /** Houses the juice of the logic ( triggerAnimationJoker, floating text, async scoring) */
 
 import {el} from '../util.js';
+import {DOM} from '../view/dom.js';
 
 /*
 Instead of calculating the total and setting the score in one line,
@@ -133,6 +134,77 @@ function flashWarning(msg) {
   setTimeout(() => { el('hand-validation-msg').innerText = ''; }, 1800);
 }
 
+/** Helper function for animation sequence of each card
+ * Ideally, the game logic should just emit an event with the list of discarded cards, 
+ * and the view layer should listen for that event and trigger this animation function, 
+ * which takes care of the visual effects without any direct coupling to the game logic.
+ * 
+ */
+async function moveCardsAnimation(selectedCards){
+  console.log( "[moveCardsAnimation] typeof: " + typeof selectedCards);
+  console.log( "[moveCardsAnimation] isArray: " + Array.isArray(selectedCards));
+  
+  // 1. Get the target element (the discard pile)
+  const discardPile = document.getElementById('discard-pile');
+  
+  // 2. Define targetRect locally so it is available in this scope
+  // If the pile doesn't exist, default to 0,0 to prevent a crash
+  const targetRect = discardPile ? discardPile.getBoundingClientRect() : { left: 0, top: 0 };
+
+  // Validate and filter out bad data immediately
+  const validAnimations = selectedCards.filter(item => {
+    return item && item.cardData && item.element;
+  });
+
+  if (selectedCards.length === 0){
+    console.warn('moveCardsAnimation called with empty card list');
+    return;
+  }
+  
+// Map only the validated items
+  const animations = validAnimations.map(({ cardData, element }) => {
+    const startRect = element.getBoundingClientRect();
+    element.style.opacity = '0'; 
+    return { cardData, startRect };
+  });
+
+  console.log(`animations = ${JSON.stringify(animations)}`);
+  
+  await new Promise(resolve => requestAnimationFrame(resolve));
+
+  // Animation sequence for each card
+  for (const {cardData, startRect} of animations){
+
+    console.log('[moveCardsAnimation]cardData = ', cardData);
+
+
+    // Create a clone for the "flight"
+    const flyCard = DOM.buildCardEl(cardData);
+
+    // Add this guard
+    if (!flyCard) {
+        console.error('[moveCardsAnimation] Failed to build card for:', cardData);
+        continue; // Skip this card instead of crashing
+    }
+
+    flyCard.style.position = 'fixed';
+    flyCard.style.opacity = '1'; // Force visible
+    flyCard.style.visibility = 'visible'; // Force visible
+    flyCard.style.left = startRect.left + 'px';
+    flyCard.style.top = startRect.top + 'px';
+    flyCard.style.zIndex = '1000';
+    document.body.appendChild(flyCard);
+
+    await flyCard.animate([
+      { transform: 'scale(1) rotate(0deg)'},
+      {left: targetRect.left + 'px', top: targetRect.top + 'px', transform: 'scale(0.2) rotate(360deg)'},
+    ], { duration: 100, easing: 'ease-in-out'}).finished;
+
+    flyCard.remove();
+  }
+
+}
+
 export const ANIMATION = {
   playHandJuice,
   animateCounter,
@@ -140,4 +212,5 @@ export const ANIMATION = {
   initCardTiltEffect,
   triggerJokerAnimation,
   flashWarning,
+  moveCardsAnimation,
 }

@@ -1,6 +1,8 @@
 // ── Physics / wiggle drag ─────────────────────────────────────
 
-const toggle = UTILS.el('mode-toggle');
+import {UTIL} from '../util.js';
+
+const toggle = UTIL.el('mode-toggle');
 let activeCard = null, mouseX = 0, mouseY = 0;
 let offset = { x: 0, y: 0 };
 let phys   = { x: 0, y: 0 };
@@ -8,33 +10,46 @@ let dragStartX = 0, dragStartY = 0;
 let isDragging = false;
 let pendingOriginal = null;
 
-window.addEventListener('mousemove', e => {
-  mouseX = e.clientX;
-  mouseY = e.clientY;
+function initPhysicsEventListeners() {
+  window.addEventListener('mousemove', e => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
 
-  // Only start ghost after 6px movement — distinguishes click from drag
-  if (pendingOriginal && !isDragging) {
-    const dx = mouseX - dragStartX, dy = mouseY - dragStartY;
-    if (Math.sqrt(dx*dx + dy*dy) > 6) {
-      isDragging = true;
-      startGhost(pendingOriginal);
+    // Only start ghost after 6px movement — distinguishes click from drag
+    if (pendingOriginal && !isDragging) {
+      const dx = mouseX - dragStartX, dy = mouseY - dragStartY;
+      if (Math.sqrt(dx*dx + dy*dy) > 6) {
+        isDragging = true;
+        startGhost(pendingOriginal);
+      }
     }
-  }
 
-  if (activeCard && !toggle.checked) {
-    activeCard.style.left = (mouseX - offset.x) + 'px';
-    activeCard.style.top  = (mouseY - offset.y) + 'px';
-  }
-});
+    if (activeCard && !toggle.checked) {
+      activeCard.style.left = (mouseX - offset.x) + 'px';
+      activeCard.style.top  = (mouseY - offset.y) + 'px';
+    }
+  });
 
-document.body.addEventListener('mousedown', e => {
-  const cardEl = e.target.closest('.card');
-  if (!cardEl) return;
-  dragStartX = e.clientX;
-  dragStartY = e.clientY;
-  isDragging = false;
-  pendingOriginal = cardEl;
-});
+  document.body.addEventListener('mousedown', e => {
+    const cardEl = e.target.closest('.card');
+    if (!cardEl) return;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    isDragging = false;
+    pendingOriginal = cardEl;
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (activeCard) {
+      activeCard.originalRef.style.opacity = '1';
+      activeCard.remove();
+      activeCard = null;
+    }
+    pendingOriginal = null;
+    isDragging = false;
+  });
+}
+
 
 function startGhost(original) {
   activeCard = original.cloneNode(true);
@@ -50,15 +65,7 @@ function startGhost(original) {
   activeCard.originalRef = original;
 }
 
-window.addEventListener('mouseup', () => {
-  if (activeCard) {
-    activeCard.originalRef.style.opacity = '1';
-    activeCard.remove();
-    activeCard = null;
-  }
-  pendingOriginal = null;
-  isDragging = false;
-});
+
 
 function physicsLoop() {
   if (activeCard && toggle.checked) {
@@ -71,4 +78,8 @@ function physicsLoop() {
   }
   requestAnimationFrame(physicsLoop);
 }
-physicsLoop();
+
+export const PHYSICS = {
+  initPhysicsEventListeners,
+  physicsLoop,
+}

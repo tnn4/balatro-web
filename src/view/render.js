@@ -35,7 +35,7 @@ export function initRender() {
     const cardContainer = overlay.querySelector('#overlay-cards');
     pile.forEach(cardData => {
         // We use buildCardEl but strip the pointer events to make them static
-        const cardEl = buildCardEl(cardData);
+        const cardEl = DOM.buildCardEl(cardData);
         cardEl.style.cursor = 'default';
         cardContainer.appendChild(cardEl);
     });

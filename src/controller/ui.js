@@ -36,6 +36,8 @@ import {EVENT} from './observer/events.js';
 // game.js
 import { GAME } from '../model/game.js';
 
+import {PHYSICS} from '../view/physics.js';
+
 // logic.js
 import { 
   calculateHandScore, 
@@ -46,6 +48,7 @@ import {DECK_REGISTRY} from '../model/data/decks.js';
 import {JOKER_TYPES} from '../model/data/jokers.js'
 import {failQuotes} from '../model/data/quotes.js'
 
+import {ANIMATION} from '../view/animation.js';
 
 export const DEBUG_MODE = true;
 
@@ -154,9 +157,39 @@ function initEventListeners() {
     RENDER.render();
   });
 
+  EVENT.gameEvents.addEventListener('HAND_PLAYED', (e) => {
+    console.log('HAND_PLAYED');
+    RENDER.render();
+    PHYSICS.physicsLoop();
+  });
+
+  EVENT.gameEvents.addEventListener('HAND_DISCARDED', (e) => {
+    console.log('HAND_DISCARDED');
+    console.log('Discarded cards:', e.detail);
+
+    const cardsToAnimate = e.detail; // Assuming detail contains the list of discarded cards
+    console.log('[EVENTLISTENER] Cards to animate:', cardsToAnimate);
+    const snapshots = cardsToAnimate
+      .map(cardData => ({
+      cardData: cardData,
+      element: document.querySelector(`[data-id="${cardData.id}"]`)
+    }))
+    .filter(item => item.element !== null); // Filter out any cards that don't have a corresponding element
+
+     if (snapshots.length === 0) {
+      console.warn('No valid cards to animate for discard');
+      return;
+    }
+    ANIMATION.moveCardsAnimation(snapshots);
+    
+    RENDER.render();
+    PHYSICS.physicsLoop();
+  });
+
   EVENT.gameEvents.addEventListener('GAME_STATE_UPDATED', (e) => {
     RENDER.render();
-  })
+    PHYSICS.physicsLoop();
+  });
 }
 
 function main(){
@@ -165,6 +198,7 @@ function main(){
   initSortButtons();
   initSaveButtons();
   initSystemMenu();
+  PHYSICS.initPhysicsEventListeners();
 }
 
 main();

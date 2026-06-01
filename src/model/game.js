@@ -17,6 +17,8 @@ import {ANIMATION} from '../view/animation.js';
 import {HUD} from '../view/hud.js';
 import {DOM} from '../view/dom.js';
 
+import {UTIL} from '../util.js';
+
 /**
  * Calculates score for a hand level (1-15).
  * Logic: chips increase by a fixed amount per level, mult increases by +1 per level.
@@ -259,27 +261,52 @@ export function playSelectedHand(handResult) {
   refillHand();
   sortHandByRank();
 
+  EVENT.emit('HAND_PLAYED');
+
   return scoreData.finalScore;
 }
 
 /** Discard hand
  * 
- * Remove selected cards from hand, decrement discardsLeft, refill. */
+ * Remove selected cards from hand, decrement discardsLeft, refill.
+ * @returns {Array} The list of discarded cards */
 export function discardSelected() {
+  const discardedCards = [];
   if (gameState.discardsLeft <= 0) return false;
   const selected = getSelectedCards();
-  if (selected.length === 0) return false;
-
+  if (selected.length === 0) return [];
+  discardedCards.push(...selected);
   // Move to state's discards pile 
   selected.forEach(card => {
     gameState.discardPile.push(card);
+    //G.discardPile.push(cardData);
   });
 
   gameState.hand           = gameState.hand.filter(c => !c.selected);
   gameState.discardsLeft  -= 1;
   refillHand();
   sortHandByRank();
-  return true;
+
+  EVENT.emit('HAND_DISCARDED', discardedCards);
+
+  return discardedCards;
+}
+
+async function handleDiscard() {
+  const selected = getSelectedCards();
+  if (selected.length === 0){
+    flashWarning('Select cards first!');
+  }
+
+  const discardPileEl = UTIL.el('discard-pile');
+  const rect = discardPileEl.getBoundingClientRect();
+
+
+
+  discardSelected();
+
+  EVENT.emit('HAND_DISCARDED',  selected );
+  
 }
 
 export function sortHandByRank() {
@@ -347,49 +374,8 @@ function handlePlayHand() {
 
 
 
-async function handleDiscard() {
-  const selected = getSelectedCards();
-  if (selected.length === 0){
-    flashWarning('Select cards first!');
-  }
 
-  const discardPileEl = el('discard-pile');
-  const rect = discardPileEl.getBoundingClientRect();
 
-  // 1. Snapshot position for all selected cards before modifying state
-  const animations = selected.map(cardData => {
-    const cardEl = document.querySelector(`[data-id="${cardData.id}"]`);
-    const startRect = cardEl.getBoundingClientRect();
-
-    // Hide original element immediately
-    cardEl.style.opacity = '0';
-    return {cardData, startRect };
-  });
-
-  discardSelected();
-  // Animation sequence for each card
-  for (const {cardData, startRect} of animations){
-
-    G.discardPile.push(cardData);
-    // Create a clone for the "flight"
-    const flyCard = buildCardEl(cardData);
-    flyCard.style.position = 'fixed';
-    flyCard.style.left = startRect.left + 'px';
-    flyCard.style.top = startRect.top + 'px';
-    flyCard.style.zIndex = '1000';
-    document.body.appendChild(flyCard);
-
-    await flyCard.animate([
-      { transform: 'scale(1) rotate(0deg)'},
-      {left: rect.left + 'px', top: rect.top + 'px', transform: 'scale(0.2) rotate(360deg)'},
-    ], { duration: 100, easing: 'ease-in-out'}).finished;
-
-    flyCard.remove();
-  }
-
-  // no view code
-  // render();
-}
 
 /* --- Progress --- */
 

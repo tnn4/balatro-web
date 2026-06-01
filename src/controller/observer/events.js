@@ -19,7 +19,7 @@
 const gameEvents = new EventTarget();
 
 function emit(type, detail) {
-  gameEvents.dispatchEvent(new CustomEvent(type, { detail }));
+  gameEvents.dispatchEvent(new CustomEvent(type, { detail: detail }));
 }
 
 

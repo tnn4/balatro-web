@@ -3,6 +3,16 @@ import { CONST } from '../model/data/constants.js';
 import { GAME } from '../model/game.js';
 
 function buildCardEl(cardData) {
+  // DEBUG TRAP
+  console.log('DEBUG [buildCardEl]: type is', typeof cardData);
+  console.log('DEBUG [buildCardEl]: value is', cardData);
+  
+  if (!cardData) {
+      console.error('CRITICAL: buildCardEl received null/undefined');
+      return;
+  }
+  //
+  
   const isRed = CONST.RED_SUITS.has(cardData.suit);
   console.log(`isRed = ${isRed}`);
   const div   = document.createElement('div');
