@@ -1,5 +1,6 @@
 /** Handles low-level DOM operations */
 import { CONST } from '../model/data/constants.js';
+import {ANIMATION} from './animation.js';
 import { GAME } from '../model/game.js';
 
 function buildCardEl(cardData) {
@@ -36,7 +37,7 @@ function buildCardEl(cardData) {
     const selected = GAME.getSelectedCards();
     // If clicking an unselected card and already at 5, block
     if (!cardData.selected && selected.length >= 5) {
-      flashWarning('Max 5 cards!');
+      ANIMATION.flashWarning('Max 5 cards!');
       return;
     }
     GAME.toggleCardSelected(cardData.id);

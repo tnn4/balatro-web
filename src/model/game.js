@@ -68,7 +68,7 @@ export const G = gameState;
 //    which is fine for a small game; no framework needed) ─────
 
 export function initGame() {
-  gameState.activeJokers = [JOKER_TYPES.MULT_2X];
+  gameState.activeJokers = [] // [JOKER_TYPES.MULT_2X];
   gameState.$ = CONST.STARTING_$;
   gameState.handsLeft    = CONST.BASE_HANDS;
   gameState.discardsLeft = CONST.BASE_DISCARDS;
@@ -246,6 +246,7 @@ export function playSelectedHand(handResult) {
   if (gameState.handsLeft <= 0) return false;
   const selected = getSelectedCards();
   if (selected.length === 0 || selected.length > 5) return false;
+  G.discardPile.push(...selected);
 
   // 1. Get hand type
   handResult = getHandType(selected);
@@ -261,9 +262,32 @@ export function playSelectedHand(handResult) {
   refillHand();
   sortHandByRank();
 
-  EVENT.emit('HAND_PLAYED');
+  // EVENT.emit('HAND_PLAYED',{ handType: handResult.name, points: scoreData.finalScore });
 
   return scoreData.finalScore;
+}
+
+// should decouple this from game logic and just trigger an event with the hand type and score, then have game.js listen for that event and update state accordingly
+function handlePlayHand() {
+  const selected = getSelectedCards();
+  // TODO: UI needs to be decoupled from logic 
+  if (selected.length === 0)  {
+    EVENT.emit('NO_CARDS_SELECTED'); 
+    // ANIMATION.flashWarning('Select cards first!'); return;
+   }
+  if (selected.length > 5)    {
+    EVENT.emit('TOO_MANY_CARDS_SELECTED'); 
+    // ANIMATION.flashWarning('Max 5 cards!');        return; 
+  }
+  if (gameState.handsLeft <= 0) return;
+
+  const result = getHandType(selected);
+  const points = playSelectedHand(result);
+
+  EVENT.emit('HAND_PLAYED',{ selected: selected,handType: result.name, points: points, result: result });
+
+  // Don't couple render(UI) to game logic
+  //render();
 }
 
 /** Discard hand
@@ -341,35 +365,7 @@ export function sortHandBySuit2() {
 }
 
 
-// should decouple this from game logic and just trigger an event with the hand type and score, then have game.js listen for that event and update state accordingly
-function handlePlayHand() {
-  const selected = getSelectedCards();
-  // TODO: UI needs to be decoupled from logic 
-  if (selected.length === 0)  { ANIMATION.flashWarning('Select cards first!'); return; }
-  if (selected.length > 5)    { ANIMATION.flashWarning('Max 5 cards!');        return; }
-  if (gameState.handsLeft <= 0) return;
 
-  const result = getHandType(selected);
-  const points = playSelectedHand(result);
-
-  if (points !== false) {
-    DOM.showPopup(`${result.name}!`, `+${points} pts`, '#4ade80');
-    // checkBlindResult();
-    if (G.score.totalScore >= G.blindTarget){
-      advanceRound();
-    }
-    else {
-      // Show game over screen if we just failed to clear the blind and have no hands left
-      if (checkGameOver()) {
-        const randomFailQuote = failQuotes[Math.floor(Math.random() * failQuotes.length)]
-        setTimeout(() => showHeadline("Game Over", "game-over", randomFailQuote, '#cc2200'), 200);
-      }
-    }
-  }
-
-  // Don't couple render(UI) to game logic
-  //render();
-}
 
 
 

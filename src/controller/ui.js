@@ -8,6 +8,8 @@
 //         
 // ============================================================
 
+export const DEBUG_MODE = true;
+
 import {
   el,
   getEl,
@@ -50,7 +52,7 @@ import {failQuotes} from '../model/data/quotes.js'
 
 import {ANIMATION} from '../view/animation.js';
 
-export const DEBUG_MODE = true;
+
 
 function updateDebugButtons(){
   const advBtn = UTIL.el('adv-round-btn');
@@ -157,18 +159,61 @@ function initEventListeners() {
     RENDER.render();
   });
 
-  EVENT.gameEvents.addEventListener('HAND_PLAYED', (e) => {
-    console.log('HAND_PLAYED');
+  initHandHandPlayedEventListener();
+
+  initHandDiscardedEventListener();
+
+  EVENT.gameEvents.addEventListener('NO_CARDS_SELECTED', () => {
+    flashWarning('Select at least 1 card!');
+  });
+
+  EVENT.gameEvents.addEventListener('TOO_MANY_CARDS_SELECTED', () => {
+    flashWarning('Max 5 cards!');
+  });
+
+
+  EVENT.gameEvents.addEventListener('GAME_STATE_UPDATED', (e) => {
     RENDER.render();
     PHYSICS.physicsLoop();
   });
+}
 
-  EVENT.gameEvents.addEventListener('HAND_DISCARDED', (e) => {
-    console.log('HAND_DISCARDED');
-    console.log('Discarded cards:', e.detail);
+function initHandHandPlayedEventListener() {
+  EVENT.gameEvents.addEventListener('HAND_PLAYED', (e) => {
+    
+    console.log('HAND_PLAYED');
+    const selected = e.detail.selected;
+    const handType = e.detail.handType;
+    const jokers = G.activeJokers; // Assuming this is updated before emitting HAND_PLAYED
+
+  if (e.detail.points !== false) {
+    DOM.showPopup(`${e.detail.result.name}!`, `+${e.detail.points} pts`, '#4ade80');
+    // checkBlindResult();
+    if (G.score.totalScore >= G.blindTarget){
+      advanceRound();
+    }
+    else {
+      // Show game over screen if we just failed to clear the blind and have no hands left
+      if (GAME.checkGameOver()) {
+        const randomFailQuote = failQuotes[Math.floor(Math.random() * failQuotes.length)]
+        setTimeout(() => showHeadline("Game Over", "game-over", randomFailQuote, '#cc2200'), 200);
+      }
+    }
+  }
+
+    ANIMATION.playHandAnimation(selected, jokers);
+    RENDER.render();
+    PHYSICS.physicsLoop();
+  });
+}
+
+function initHandDiscardedEventListener() {
+    EVENT.gameEvents.addEventListener('HAND_DISCARDED', (e) => {
+    //console.log('HAND_DISCARDED');
+    //console.log('Discarded cards:', e.detail);
 
     const cardsToAnimate = e.detail; // Assuming detail contains the list of discarded cards
-    console.log('[EVENTLISTENER] Cards to animate:', cardsToAnimate);
+    //console.log('[EVENTLISTENER] Cards to animate:', cardsToAnimate);
     const snapshots = cardsToAnimate
       .map(cardData => ({
       cardData: cardData,
@@ -182,11 +227,6 @@ function initEventListeners() {
     }
     ANIMATION.moveCardsAnimation(snapshots);
     
-    RENDER.render();
-    PHYSICS.physicsLoop();
-  });
-
-  EVENT.gameEvents.addEventListener('GAME_STATE_UPDATED', (e) => {
     RENDER.render();
     PHYSICS.physicsLoop();
   });

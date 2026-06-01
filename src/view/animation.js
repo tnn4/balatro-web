@@ -8,8 +8,16 @@ Instead of calculating the total and setting the score in one line,
 you must break calculateHandScore into a generator or an async function that awaits animations
 */
 // ── Juice ────────────────────────────────────────────────
-async function playHandJuice(cards, jokers) {
+async function playHandAnimation(cards, jokers) {
   let currentTotal = 0;
+
+  console.log('[playHandAnimation] Playing hand animation for cards:', cards, 'and jokers:', jokers);
+  cards.filter( (card) => {
+    if (!card) {
+      console.warn('playHandAnimation received invalid card:', card);
+      return false; // Filter out invalid cards
+    }
+  })
 
   for(const card of cards) {
     // 1. Highlight the current card being scored
@@ -21,7 +29,7 @@ async function playHandJuice(cards, jokers) {
     currentTotal += cardChips;
 
     // 3. Spawning the floating +N text over the card
-    spawnFloatingText(`+${cardChips}`, 'var(--blue)');
+    spawnFloatingText(cardEl,`+${cardChips}`, 'var(--blue)');
 
     // 4. Update the chip counter gradually
     await animateCounter('chips-display', currentTotal, 300);
@@ -35,7 +43,11 @@ async function playHandJuice(cards, jokers) {
 }
 
 async function triggerMultJuice(jokers) {
-
+  console.log('Triggering Mult Juice for jokers:', jokers);
+  for(const joker of jokers) {
+    await triggerJokerAnimation(joker.id, `x${joker.multiplier}`);
+    await animateCounter('mult-display', G.score.totalMult, 300);
+  }
 }
 
 async function animateCounter(elementId, targetValue, duration) {
@@ -55,7 +67,7 @@ async function animateCounter(elementId, targetValue, duration) {
       if (progress < 1) requestAnimationFrame(update);
       else resolve();
     }
-    requestAnimateFrame(update);
+    requestAnimationFrame(update);
   })
 }
 
@@ -101,12 +113,12 @@ function initCardTiltEffect() {
 
 }
 
-function triggerJokerAnimation(jokerId, bonusText){
+async function triggerJokerAnimation(jokerId, bonusText){
   const jokerEl = document.querySelector(`[data-joker-id="${jokerId}"]`);
   if (!jokerEl) return;
 
   // Shake and scale
-  jokerEl.animate([
+  await jokerEl.animate([
     { transform: 'scale(1)' },
     { transform: 'scale(1.2) rotate(-5deg)'},
     { transform: 'scale(1.2) rotate(5deg)'},
@@ -141,8 +153,8 @@ function flashWarning(msg) {
  * 
  */
 async function moveCardsAnimation(selectedCards){
-  console.log( "[moveCardsAnimation] typeof: " + typeof selectedCards);
-  console.log( "[moveCardsAnimation] isArray: " + Array.isArray(selectedCards));
+  //console.log( "[moveCardsAnimation] typeof: " + typeof selectedCards);
+  //console.log( "[moveCardsAnimation] isArray: " + Array.isArray(selectedCards));
   
   // 1. Get the target element (the discard pile)
   const discardPile = document.getElementById('discard-pile');
@@ -168,14 +180,14 @@ async function moveCardsAnimation(selectedCards){
     return { cardData, startRect };
   });
 
-  console.log(`animations = ${JSON.stringify(animations)}`);
+  // console.log(`animations = ${JSON.stringify(animations)}`);
   
   await new Promise(resolve => requestAnimationFrame(resolve));
 
   // Animation sequence for each card
   for (const {cardData, startRect} of animations){
 
-    console.log('[moveCardsAnimation]cardData = ', cardData);
+    // console.log('[moveCardsAnimation]cardData = ', cardData);
 
 
     // Create a clone for the "flight"
@@ -206,7 +218,7 @@ async function moveCardsAnimation(selectedCards){
 }
 
 export const ANIMATION = {
-  playHandJuice,
+  playHandAnimation,
   animateCounter,
   spawnFloatingText,
   initCardTiltEffect,
